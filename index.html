@@ -5,51 +5,51 @@
 <title>Academic Website</title>
 
 <style>
-body { margin:0; font-family: Arial; background:white; color:black; }
+body { font-family: Georgia, serif; margin:0; background:#ffffff; }
 
-/* Layout */
-.container { display:flex; }
-
-/* Sidebar */
-.sidebar {
-width:250px;
-background:#f5f5f5;
-height:100vh;
+/* 顶部 */
+.header {
+text-align:center;
 padding:20px;
-position:fixed;
+border-bottom:1px solid #ccc;
 }
 
-.sidebar h2 { margin-bottom:20px; }
-
-.sidebar div {
-margin:10px 0;
-cursor:pointer;
+/* Main Street */
+.street {
+display:flex;
+flex-wrap:wrap;
+justify-content:center;
+gap:20px;
+padding:30px;
 }
 
-.sidebar div:hover { color:#007acc; }
-
-/* Main */
-.main {
-margin-left:270px;
-padding:40px;
-width:100%;
-}
-
-/* Content blocks */
-.block {
-margin:20px 0;
+.box {
+width:250px;
+height:150px;
 padding:15px;
-background:#fafafa;
-border-left:4px solid #007acc;
+color:black;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+cursor:pointer;
+font-weight:bold;
 }
 
-img { max-width:100%; margin-top:10px; }
+.box:hover { transform:scale(1.05); }
 
-/* Admin */
+/* 页面内容 */
+.page {
+max-width:800px;
+margin:auto;
+padding:30px;
+}
+
+h1 { text-align:center; }
+
+ul { text-align:left; }
+
 .hidden { display:none; }
-
-button { margin:5px; }
-.selected { font-weight:bold; }
 
 </style>
 
@@ -57,168 +57,132 @@ button { margin:5px; }
 
 <body>
 
-<div class="container">
-
-<!-- Sidebar -->
-<div class="sidebar">
-<h2 id="name"></h2>
-
-<div onclick="showSection('home')">Home</div>
-<div onclick="showSection(0)">Section 1</div>
-<div onclick="showSection(1)">Section 2</div>
-<div onclick="showSection(2)">Section 3</div>
-
-<hr>
-
+<div class="header">
+<h1 id="mainTitle"></h1>
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
 <button onclick="toggleAdmin()">Admin</button>
 </div>
 
-<!-- Main -->
-<div class="main" id="main"></div>
+<!-- MAIN STREET -->
+<div id="home" class="street"></div>
 
-</div>
+<!-- PAGE -->
+<div id="page" class="page hidden"></div>
 
 <!-- ADMIN -->
-<div id="admin" class="hidden main">
+<div id="admin" class="hidden page">
 
-<h2>Admin Panel</h2>
+<h2>Admin</h2>
 
-<input id="name_input" placeholder="Name">
-<input id="main_en" placeholder="Main Title EN">
-<input id="main_cn" placeholder="Main Title CN">
-<input id="title_en" placeholder="Subtitle EN">
-<input id="title_cn" placeholder="Subtitle CN">
-<button onclick="saveBasic()">Save</button>
+<h3>Main Title</h3>
+<input id="main_en">
+<input id="main_cn">
+<button onclick="saveMain()">Save</button>
 
-<h3>Add Section</h3>
-<input id="sec_en">
-<input id="sec_cn">
-<button onclick="addSection()">Add</button>
+<h3>Add Module</h3>
+<input id="mod_en" placeholder="EN Title">
+<input id="mod_cn" placeholder="CN Title">
+<input id="mod_color" placeholder="color (e.g. lightblue)">
+<button onclick="addModule()">Add</button>
 
-<h3>Select Section</h3>
+<h3>Select Module</h3>
 <div id="selector"></div>
 
-<h3>Add Text</h3>
+<h3>Add Content</h3>
 <textarea id="text_en"></textarea>
 <textarea id="text_cn"></textarea>
-<button onclick="addText()">Add</button>
-
-<h3>Add Image</h3>
-<input type="file" id="img_file">
-<button onclick="addImage()">Add</button>
-
-<h3>Upload File</h3>
-<input type="file" id="file_upload">
-<button onclick="uploadFile()">Upload</button>
+<input type="file" id="img">
+<button onclick="addContent()">Add</button>
 
 </div>
 
 <script>
 
 let lang="en";
-let selectedIndex=null;
-let currentView="home";
+let selected=null;
+let current=null;
 
 let data = JSON.parse(localStorage.getItem("site")) || {
-name:"Stephen Ouyang",
-main_en:"Total Synthesis",
-main_cn:"全合成",
-title_en:"Future researcher",
-title_cn:"未来科研人员",
-sections:[],
-files:[]
+main_en:"Main Street",
+main_cn:"主页",
+modules:[]
 };
 
 function save(){ localStorage.setItem("site", JSON.stringify(data)); }
 
 function setLang(l){ lang=l; render(); }
 
-function showSection(i){
-currentView=i;
-render();
-}
-
 function render(){
 
-document.getElementById("name").innerText = data.name;
+document.getElementById("mainTitle").innerText =
+(lang==="en")?data.main_en:data.main_cn;
 
-let main=document.getElementById("main");
+let home=document.getElementById("home");
+home.innerHTML="";
 
-if(currentView==="home"){
+data.modules.forEach((m,i)=>{
+home.innerHTML+=`
+<div class="box" style="background:${m.color}"
+onclick="openPage(${i})">
+${lang==="en"?m.title_en:m.title_cn}
+</div>`;
+});
 
-main.innerHTML = `
-<h1>${lang==="en"?data.main_en:data.main_cn}</h1>
-<p>${lang==="en"?data.title_en:data.title_cn}</p>
+renderSelector();
+}
+
+function openPage(i){
+
+current=i;
+
+let m=data.modules[i];
+
+document.getElementById("home").classList.add("hidden");
+let page=document.getElementById("page");
+page.classList.remove("hidden");
+
+let html=`<h1>${lang==="en"?m.title_en:m.title_cn}</h1>
+<button onclick="back()">Back</button>`;
+
+if(m.contents){
+m.contents.forEach(c=>{
+html+=`
+<p>${lang==="en"?c.en:c.cn}</p>
+${c.img?`<img src="${c.img}">`:""}
 `;
-
-return;
-}
-
-let s=data.sections[currentView];
-
-let html=`<h1>${lang==="en"?s.title_en:s.title_cn}</h1>`;
-
-if(s.blocks){
-s.blocks.forEach((b,bi)=>{
-
-if(b.type==="text"){
-html+=`<div class="block">
-<p>${lang==="en"?b.en:b.cn}</p>
-<button onclick="delBlock(${currentView},${bi})">Delete</button>
-</div>`;
-}
-
-if(b.type==="image"){
-html+=`<div class="block">
-<img src="${b.src}">
-<button onclick="delBlock(${currentView},${bi})">Delete</button>
-</div>`;
-}
-
 });
 }
 
-main.innerHTML=html;
+page.innerHTML=html;
+}
 
-renderSelector();
+function back(){
+document.getElementById("home").classList.remove("hidden");
+document.getElementById("page").classList.add("hidden");
 }
 
 function toggleAdmin(){
 let pwd=prompt("Password:");
 if(pwd==="1234567890qw"){
 document.getElementById("admin").classList.toggle("hidden");
-
-name_input.value=data.name;
-main_en.value=data.main_en;
-main_cn.value=data.main_cn;
-title_en.value=data.title_en;
-title_cn.value=data.title_cn;
 }
 }
 
-function saveBasic(){
-data.name=name_input.value;
+function saveMain(){
 data.main_en=main_en.value;
 data.main_cn=main_cn.value;
-data.title_en=title_en.value;
-data.title_cn=title_cn.value;
 save(); render();
 }
 
-function addSection(){
+function addModule(){
 
-let en=sec_en.value;
-let cn=sec_cn.value;
-
-data.sections.push({
-title_en:en,
-title_cn:cn,
-blocks:[]
+data.modules.push({
+title_en:mod_en.value,
+title_cn:mod_cn.value,
+color:mod_color.value,
+contents:[]
 });
-
-selectedIndex=data.sections.length-1;
 
 save(); render();
 }
@@ -227,64 +191,36 @@ function renderSelector(){
 
 selector.innerHTML="";
 
-data.sections.forEach((s,i)=>{
+data.modules.forEach((m,i)=>{
 selector.innerHTML+=`
-<div onclick="selectSection(${i})">${s.title_en}</div>`;
+<div onclick="selected=${i}">
+${m.title_en}
+</div>`;
 });
 }
 
-function selectSection(i){ selectedIndex=i; }
+function addContent(){
 
-function addText(){
+let file=img.files[0];
 
-data.sections[selectedIndex].blocks.push({
-type:"text",
+if(file){
+let reader=new FileReader();
+reader.onload=function(){
+data.modules[selected].contents.push({
+en:text_en.value,
+cn:text_cn.value,
+img:reader.result
+});
+save(); render();
+};
+reader.readAsDataURL(file);
+}else{
+data.modules[selected].contents.push({
 en:text_en.value,
 cn:text_cn.value
 });
-
 save(); render();
 }
-
-function addImage(){
-
-let file=img_file.files[0];
-
-let reader=new FileReader();
-reader.onload=function(){
-
-data.sections[selectedIndex].blocks.push({
-type:"image",
-src:reader.result
-});
-
-save(); render();
-};
-
-reader.readAsDataURL(file);
-}
-
-function delBlock(i,bi){
-data.sections[i].blocks.splice(bi,1);
-save(); render();
-}
-
-function uploadFile(){
-
-let file=file_upload.files[0];
-
-let reader=new FileReader();
-reader.onload=function(){
-
-data.files.push({
-name:file.name,
-data:reader.result
-});
-
-save(); render();
-};
-
-reader.readAsDataURL(file);
 }
 
 render();
