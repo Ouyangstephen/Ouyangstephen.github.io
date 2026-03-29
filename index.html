@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Academic Website (Cloud)</title>
+<title>Academic Website</title>
 
 <style>
 body { font-family: Arial; background:#020617; color:white; margin:0; }
@@ -13,10 +13,6 @@ button { margin:5px; padding:5px 10px; }
 .hidden { display:none; }
 </style>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
 </head>
 
 <body>
@@ -25,7 +21,7 @@ button { margin:5px; padding:5px 10px; }
   <h2 id="name"></h2>
   <div>
     <button onclick="setLang('en')">EN</button>
-    <button onclick="setLang('cn')">中</button>
+    <button onclick="setLang('cn')">中文</button>
     <button onclick="toggleAdmin()">Admin</button>
   </div>
 </nav>
@@ -50,13 +46,17 @@ button { margin:5px; padding:5px 10px; }
   <div id="pubs"></div>
 </div>
 
+<div class="section">
+  <h2>Files</h2>
+  <div id="files"></div>
+</div>
+
 <!-- ADMIN -->
 <div id="admin" class="hidden section">
 
 <h2>Admin Panel</h2>
 
-<h3>Basic Info</h3>
-<input id="name_input">
+<input id="name_input" placeholder="Name">
 <input id="title_en">
 <input id="title_cn">
 <textarea id="about_en"></textarea>
@@ -64,8 +64,8 @@ button { margin:5px; padding:5px 10px; }
 <button onclick="saveBasic()">Save</button>
 
 <h3>Add Section</h3>
-<input id="s_en">
-<input id="s_cn">
+<input id="s_en" placeholder="Title EN">
+<input id="s_cn" placeholder="Title CN">
 <textarea id="c_en"></textarea>
 <textarea id="c_cn"></textarea>
 <button onclick="addSection()">Add</button>
@@ -77,42 +77,46 @@ button { margin:5px; padding:5px 10px; }
 <input id="p_year">
 <button onclick="addPub()">Add</button>
 
+<h3>Upload File</h3>
+<input type="file" id="file">
+<button onclick="upload()">Upload</button>
+
 </div>
 
 <script>
 
-// 🔥 把你的 firebaseConfig 粘这里
-const firebaseConfig = {
-  apiKey: "替换",
-  authDomain: "替换",
-  projectId: "替换",
+let lang = "en";
+
+let data = JSON.parse(localStorage.getItem("site")) || {
+    name:"Stephen Ouyang",
+    title_en:"Future researcher in pharmaceutical total synthesis",
+    title_cn:"未来从事药物全合成研究的科研人员",
+    about_en:"I focus on total synthesis.",
+    about_cn:"我专注于全合成。",
+    sections:[],
+    pubs:[],
+    files:[]
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+function save(){
+    localStorage.setItem("site", JSON.stringify(data));
+}
 
-let lang = "en";
-let data = {};
-
-function setLang(l){ lang=l; render(); }
-
-// 实时监听
-db.collection("site").doc("main").onSnapshot(doc=>{
-    if(doc.exists){
-        data = doc.data();
-        render();
-    }
-});
+function setLang(l){
+    lang = l;
+    render();   // ✅ 关键修复
+}
 
 function render(){
-    if(!data.name) return;
 
     name.innerText = data.name;
+
     title.innerText = (lang==="en")?data.title_en:data.title_cn;
     about.innerText = (lang==="en")?data.about_en:data.about_cn;
 
+    // sections
     sections.innerHTML="";
-    (data.sections||[]).forEach((s,i)=>{
+    data.sections.forEach((s,i)=>{
         sections.innerHTML += `
         <div class="card">
         <h3>${lang==="en"?s.en:s.cn}</h3>
@@ -121,8 +125,9 @@ function render(){
         </div>`;
     });
 
+    // publications
     pubs.innerHTML="";
-    (data.pubs||[]).forEach((p,i)=>{
+    data.pubs.forEach((p,i)=>{
         pubs.innerHTML += `
         <div class="card">
         <b>${p.title}</b><br>
@@ -131,60 +136,97 @@ function render(){
         <button onclick="delPub(${i})">Delete</button>
         </div>`;
     });
+
+    // files
+    files.innerHTML="";
+    data.files.forEach((f,i)=>{
+        files.innerHTML += `
+        <div>
+        <a href="${f.url}" target="_blank">${f.name}</a>
+        <button onclick="delFile(${i})">Delete</button>
+        </div>`;
+    });
+
 }
 
-// 🔐 后台密码（你可以改）
 function toggleAdmin(){
     let pwd = prompt("Password:");
     if(pwd==="1234"){
         admin.classList.toggle("hidden");
+
+        name_input.value = data.name;
+        title_en.value = data.title_en;
+        title_cn.value = data.title_cn;
+        about_en.value = data.about_en;
+        about_cn.value = data.about_cn;
     }
 }
 
-// 保存基础信息
 function saveBasic(){
-    db.collection("site").doc("main").set({
-        ...data,
-        name:name_input.value,
-        title_en:title_en.value,
-        title_cn:title_cn.value,
-        about_en:about_en.value,
-        about_cn:about_cn.value
-    });
+    data.name = name_input.value;
+    data.title_en = title_en.value;
+    data.title_cn = title_cn.value;
+    data.about_en = about_en.value;
+    data.about_cn = about_cn.value;
+    save(); render();
 }
 
-// 添加 section
 function addSection(){
-    let arr = data.sections||[];
-    arr.push({en:s_en.value, cn:s_cn.value, c_en:c_en.value, c_cn:c_cn.value});
-    db.collection("site").doc("main").update({sections:arr});
+    data.sections.push({
+        en:s_en.value,
+        cn:s_cn.value,
+        c_en:c_en.value,
+        c_cn:c_cn.value
+    });
+    save(); render();
 }
 
-// 删除 section
 function delSection(i){
-    let arr = data.sections;
-    arr.splice(i,1);
-    db.collection("site").doc("main").update({sections:arr});
+    data.sections.splice(i,1);
+    save(); render();
 }
 
-// 添加 publication
 function addPub(){
-    let arr = data.pubs||[];
-    arr.push({
+    data.pubs.push({
         title:p_title.value,
         auth:p_auth.value,
         journal:p_journal.value,
         year:p_year.value
     });
-    db.collection("site").doc("main").update({pubs:arr});
+    save(); render();
 }
 
-// 删除 publication
 function delPub(i){
-    let arr = data.pubs;
-    arr.splice(i,1);
-    db.collection("site").doc("main").update({pubs:arr});
+    data.pubs.splice(i,1);
+    save(); render();
 }
+
+function upload(){
+    let f = file.files[0];
+
+    if(!f){
+        alert("Please select a file");
+        return;
+    }
+
+    let reader = new FileReader();
+    reader.onload = function(){
+        data.files.push({
+            name:f.name,
+            url:reader.result
+        });
+        save();
+        render();
+    };
+    reader.readAsDataURL(f);
+}
+
+function delFile(i){
+    data.files.splice(i,1);
+    save(); render();
+}
+
+render();
 
 </script>
 
