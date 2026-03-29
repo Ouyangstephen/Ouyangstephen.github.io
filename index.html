@@ -7,8 +7,7 @@
 <style>
 body { font-family: Arial; background:#020617; color:white; margin:0; }
 nav { display:flex; justify-content:space-between; padding:15px; background:black; }
-.section { padding:60px 20px; text-align:center; }
-h2 { cursor:pointer; }
+.section { padding:50px; text-align:center; }
 .block { margin:20px auto; width:60%; background:#1e293b; padding:15px; border-radius:10px; }
 .selected { border:2px solid #38bdf8; }
 button { margin:5px; }
@@ -20,20 +19,25 @@ button { margin:5px; }
 <body>
 
 <nav>
-  <h2 id="name"></h2>
-  <div>
-    <button onclick="setLang('en')">EN</button>
-    <button onclick="setLang('cn')">中文</button>
-    <button onclick="toggleAdmin()">Admin</button>
-  </div>
+<h2 id="name"></h2>
+<div>
+<button onclick="setLang('en')">EN</button>
+<button onclick="setLang('cn')">中文</button>
+<button onclick="toggleAdmin()">Admin</button>
+</div>
 </nav>
 
 <div class="section">
-  <h1>Total Synthesis</h1>
-  <p id="title"></p>
+<h1>Total Synthesis</h1>
+<p id="title"></p>
 </div>
 
 <div id="content"></div>
+
+<div class="section">
+<h2>Files</h2>
+<div id="fileList"></div>
+</div>
 
 <!-- ADMIN -->
 <div id="admin" class="hidden section">
@@ -50,17 +54,21 @@ button { margin:5px; }
 <input id="sec_cn">
 <button onclick="addSection()">Add Section</button>
 
-<h3>Select Section（点击）</h3>
+<h3>Select Section</h3>
 <div id="selector"></div>
 
-<h3>Add Text Block</h3>
+<h3>Add Text</h3>
 <textarea id="text_en"></textarea>
 <textarea id="text_cn"></textarea>
 <button onclick="addText()">Add Text</button>
 
-<h3>Add Image Block</h3>
+<h3>Add Image</h3>
 <input type="file" id="img_file">
 <button onclick="addImage()">Add Image</button>
+
+<h3>Upload File</h3>
+<input type="file" id="file_upload">
+<button onclick="uploadFile()">Upload File</button>
 
 </div>
 
@@ -70,150 +78,195 @@ let lang="en";
 let selectedIndex=null;
 
 let data = JSON.parse(localStorage.getItem("site")) || {
-    name:"Stephen Ouyang",
-    title_en:"Future researcher in pharmaceutical total synthesis",
-    title_cn:"未来从事药物全合成研究的科研人员",
-    sections:[]
+name:"Stephen Ouyang",
+title_en:"Future researcher in pharmaceutical total synthesis",
+title_cn:"未来从事药物全合成研究的科研人员",
+sections:[],
+files:[]
 };
 
 function save(){
-    localStorage.setItem("site", JSON.stringify(data));
+localStorage.setItem("site", JSON.stringify(data));
 }
 
 function setLang(l){ lang=l; render(); }
 
 function render(){
 
-    name.innerText = data.name;
-    title.innerText = (lang==="en")?data.title_en:data.title_cn;
+document.getElementById("name").innerText = data.name;
+document.getElementById("title").innerText =
+(lang==="en")?data.title_en:data.title_cn;
 
-    content.innerHTML="";
+let content=document.getElementById("content");
+content.innerHTML="";
 
-    data.sections.forEach((s,i)=>{
+data.sections.forEach((s,i)=>{
 
-        let html = `<div class="section">
-        <h2 onclick="openSection(${i})">${lang==="en"?s.title_en:s.title_cn}</h2>`;
+let html=`<div class="section">
+<h2 onclick="selectSection(${i})">${lang==="en"?s.title_en:s.title_cn}</h2>`;
 
-        if(s.blocks){
-            s.blocks.forEach((b,bi)=>{
+if(s.blocks){
+s.blocks.forEach((b,bi)=>{
 
-                if(b.type==="text"){
-                    html+=`
-                    <div class="block">
-                    <p>${lang==="en"?b.en:b.cn}</p>
-                    <button onclick="delBlock(${i},${bi})">Delete</button>
-                    </div>`;
-                }
-
-                if(b.type==="image"){
-                    html+=`
-                    <div class="block">
-                    <img src="${b.src}">
-                    <button onclick="delBlock(${i},${bi})">Delete</button>
-                    </div>`;
-                }
-
-            });
-        }
-
-        html+="</div>";
-        content.innerHTML+=html;
-    });
-
-    renderSelector();
+if(b.type==="text"){
+html+=`<div class="block">
+<p>${lang==="en"?b.en:b.cn}</p>
+<button onclick="delBlock(${i},${bi})">Delete</button>
+</div>`;
 }
 
-function openSection(i){
-    window.location.search="?section="+i;
+if(b.type==="image"){
+html+=`<div class="block">
+<img src="${b.src}">
+<button onclick="delBlock(${i},${bi})">Delete</button>
+</div>`;
+}
+
+});
+}
+
+html+="</div>";
+content.innerHTML+=html;
+});
+
+renderSelector();
+renderFiles();
 }
 
 function toggleAdmin(){
-    let pwd = prompt("Password:");
-    if(pwd==="1234567890qw"){
-        admin.classList.toggle("hidden");
-        renderSelector();
-    }
+let pwd = prompt("Password:");
+if(pwd==="1234567890qw"){
+document.getElementById("admin").classList.toggle("hidden");
+renderSelector();
+}
 }
 
 function saveBasic(){
-    data.name=name_input.value;
-    data.title_en=title_en.value;
-    data.title_cn=title_cn.value;
-    save(); render();
+data.name = document.getElementById("name_input").value;
+data.title_en = document.getElementById("title_en").value;
+data.title_cn = document.getElementById("title_cn").value;
+save(); render();
 }
 
 function addSection(){
 
-    data.sections.push({
-        title_en:sec_en.value,
-        title_cn:sec_cn.value,
-        blocks:[]
-    });
+let en=document.getElementById("sec_en").value;
+let cn=document.getElementById("sec_cn").value;
 
-    selectedIndex = data.sections.length-1; // 自动选中
-    save(); render();
+if(!en){
+alert("Title EN required");
+return;
+}
+
+data.sections.push({
+title_en:en,
+title_cn:cn,
+blocks:[]
+});
+
+selectedIndex=data.sections.length-1;
+
+save(); render();
 }
 
 function renderSelector(){
 
-    selector.innerHTML="";
+let selector=document.getElementById("selector");
+selector.innerHTML="";
 
-    data.sections.forEach((s,i)=>{
-        selector.innerHTML+=`
-        <div onclick="selectSection(${i})"
-        class="${selectedIndex===i?'selected':''}">
-        ${s.title_en}
-        </div>`;
-    });
+data.sections.forEach((s,i)=>{
+selector.innerHTML+=`
+<div onclick="selectSection(${i})"
+class="${selectedIndex===i?'selected':''}">
+${s.title_en}
+</div>`;
+});
 }
 
 function selectSection(i){
-    selectedIndex=i;
-    renderSelector();
+selectedIndex=i;
+renderSelector();
 }
 
 function addText(){
 
-    if(selectedIndex===null){
-        alert("Select section first");
-        return;
-    }
+if(selectedIndex===null){
+alert("Select section first");
+return;
+}
 
-    data.sections[selectedIndex].blocks.push({
-        type:"text",
-        en:text_en.value,
-        cn:text_cn.value
-    });
+data.sections[selectedIndex].blocks.push({
+type:"text",
+en:document.getElementById("text_en").value,
+cn:document.getElementById("text_cn").value
+});
 
-    save(); render();
+save(); render();
 }
 
 function addImage(){
 
-    if(selectedIndex===null){
-        alert("Select section first");
-        return;
-    }
+if(selectedIndex===null){
+alert("Select section first");
+return;
+}
 
-    let file = img_file.files[0];
+let file=document.getElementById("img_file").files[0];
 
-    let reader=new FileReader();
-    reader.onload=function(){
+let reader=new FileReader();
+reader.onload=function(){
 
-        data.sections[selectedIndex].blocks.push({
-            type:"image",
-            src:reader.result
-        });
+data.sections[selectedIndex].blocks.push({
+type:"image",
+src:reader.result
+});
 
-        save(); render();
-    };
+save(); render();
+};
 
-    reader.readAsDataURL(file);
+reader.readAsDataURL(file);
 }
 
 function delBlock(i,bi){
-    data.sections[i].blocks.splice(bi,1);
-    save(); render();
+data.sections[i].blocks.splice(bi,1);
+save(); render();
+}
+
+function uploadFile(){
+
+let file=document.getElementById("file_upload").files[0];
+
+let reader=new FileReader();
+reader.onload=function(){
+
+data.files.push({
+name:file.name,
+data:reader.result
+});
+
+save(); render();
+};
+
+reader.readAsDataURL(file);
+}
+
+function renderFiles(){
+
+let list=document.getElementById("fileList");
+list.innerHTML="";
+
+data.files.forEach((f,i)=>{
+list.innerHTML+=`
+<div>
+<a href="${f.data}" download="${f.name}">${f.name}</a>
+<button onclick="delFile(${i})">Delete</button>
+</div>`;
+});
+}
+
+function delFile(i){
+data.files.splice(i,1);
+save(); render();
 }
 
 render();
@@ -222,4 +275,3 @@ render();
 
 </body>
 </html>
-
