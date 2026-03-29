@@ -2,164 +2,182 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Academic Website</title>
+<title>Research Website</title>
+
+<!-- Quill -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+
+<!-- MathJax -->
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 <style>
-body { font-family: Georgia, serif; margin:0; background:#ffffff; }
+body { margin:0; font-family: Georgia, serif; background:white; }
 
-/* 顶部 */
-.header {
-text-align:center;
-padding:20px;
-border-bottom:1px solid #ccc;
-}
+/* layout */
+.container { display:flex; }
 
-/* Main Street */
-.street {
-display:flex;
-flex-wrap:wrap;
-justify-content:center;
-gap:20px;
-padding:30px;
-}
-
-.box {
+/* sidebar */
+.sidebar {
 width:250px;
-height:150px;
+background:#f5f5f5;
+height:100vh;
+padding:20px;
+position:fixed;
+}
+
+.sidebar div { margin:10px 0; cursor:pointer; }
+
+/* main */
+.main {
+margin-left:270px;
+padding:40px;
+max-width:900px;
+}
+
+/* content */
+.block {
+margin:20px 0;
 padding:15px;
-color:black;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-cursor:pointer;
-font-weight:bold;
+background:#fafafa;
+border-left:4px solid #007acc;
 }
 
-.box:hover { transform:scale(1.05); }
-
-/* 页面内容 */
-.page {
-max-width:800px;
-margin:auto;
-padding:30px;
+.paper {
+margin:15px 0;
 }
 
-h1 { text-align:center; }
+.paper-title { font-weight:bold; }
+.paper-journal { font-style:italic; }
 
-ul { text-align:left; }
-
+/* admin */
 .hidden { display:none; }
-
+button { margin:5px; }
 </style>
 
 </head>
 
 <body>
 
-<div class="header">
-<h1 id="mainTitle"></h1>
+<div class="container">
+
+<div class="sidebar">
+<h2 id="name"></h2>
+
+<div onclick="showPage('home')">Home</div>
+<div onclick="showPage('research')">Research</div>
+<div onclick="showPage('papers')">Publications</div>
+
+<hr>
+
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
 <button onclick="toggleAdmin()">Admin</button>
 </div>
 
-<!-- MAIN STREET -->
-<div id="home" class="street"></div>
+<div class="main" id="main"></div>
 
-<!-- PAGE -->
-<div id="page" class="page hidden"></div>
+</div>
 
 <!-- ADMIN -->
-<div id="admin" class="hidden page">
+<div id="admin" class="hidden main">
 
 <h2>Admin</h2>
 
-<h3>Main Title</h3>
-<input id="main_en">
-<input id="main_cn">
-<button onclick="saveMain()">Save</button>
+<h3>Basic</h3>
+<input id="name_input">
+<input id="title_en">
+<input id="title_cn">
+<button onclick="saveBasic()">Save</button>
 
-<h3>Add Module</h3>
-<input id="mod_en" placeholder="EN Title">
-<input id="mod_cn" placeholder="CN Title">
-<input id="mod_color" placeholder="color (e.g. lightblue)">
-<button onclick="addModule()">Add</button>
+<h3>Editor EN</h3>
+<div id="editor_en" style="background:white;height:150px;"></div>
 
-<h3>Select Module</h3>
-<div id="selector"></div>
+<h3>Editor CN</h3>
+<div id="editor_cn" style="background:white;height:150px;"></div>
 
-<h3>Add Content</h3>
-<textarea id="text_en"></textarea>
-<textarea id="text_cn"></textarea>
-<input type="file" id="img">
-<button onclick="addContent()">Add</button>
+<button onclick="addResearch()">Add Research Block</button>
+
+<h3>Add Paper</h3>
+<input id="p_title">
+<input id="p_auth">
+<input id="p_journal">
+<input id="p_year">
+<button onclick="addPaper()">Add Paper</button>
 
 </div>
 
 <script>
 
 let lang="en";
-let selected=null;
-let current=null;
+let current="home";
+
+let quillEN, quillCN;
 
 let data = JSON.parse(localStorage.getItem("site")) || {
-main_en:"Main Street",
-main_cn:"主页",
-modules:[]
+name:"Stephen Ouyang",
+title_en:"Research in Total Synthesis",
+title_cn:"全合成研究",
+research:[],
+papers:[]
 };
 
-function save(){ localStorage.setItem("site", JSON.stringify(data)); }
+function save(){
+localStorage.setItem("site", JSON.stringify(data));
+}
 
 function setLang(l){ lang=l; render(); }
 
+function showPage(p){
+current=p;
+render();
+}
+
 function render(){
 
-document.getElementById("mainTitle").innerText =
-(lang==="en")?data.main_en:data.main_cn;
+document.getElementById("name").innerText = data.name;
 
-let home=document.getElementById("home");
-home.innerHTML="";
+let main=document.getElementById("main");
 
-data.modules.forEach((m,i)=>{
-home.innerHTML+=`
-<div class="box" style="background:${m.color}"
-onclick="openPage(${i})">
-${lang==="en"?m.title_en:m.title_cn}
+if(current==="home"){
+main.innerHTML = `
+<h1>${lang==="en"?data.title_en:data.title_cn}</h1>
+`;
+}
+
+if(current==="research"){
+
+let html="<h1>Research</h1>";
+
+data.research.forEach((r,i)=>{
+html+=`
+<div class="block">
+${lang==="en"?r.en:r.cn}
+<button onclick="delResearch(${i})">Delete</button>
 </div>`;
 });
 
-renderSelector();
+main.innerHTML=html;
+
+MathJax.typeset(); // 渲染公式
 }
 
-function openPage(i){
+if(current==="papers"){
 
-current=i;
+let html="<h1>Publications</h1>";
 
-let m=data.modules[i];
-
-document.getElementById("home").classList.add("hidden");
-let page=document.getElementById("page");
-page.classList.remove("hidden");
-
-let html=`<h1>${lang==="en"?m.title_en:m.title_cn}</h1>
-<button onclick="back()">Back</button>`;
-
-if(m.contents){
-m.contents.forEach(c=>{
+data.papers.forEach(p=>{
 html+=`
-<p>${lang==="en"?c.en:c.cn}</p>
-${c.img?`<img src="${c.img}">`:""}
-`;
+<div class="paper">
+<div class="paper-title">${p.title}</div>
+<div>${p.auth}</div>
+<div class="paper-journal">${p.journal} (${p.year})</div>
+</div>`;
 });
+
+main.innerHTML=html;
 }
 
-page.innerHTML=html;
-}
-
-function back(){
-document.getElementById("home").classList.remove("hidden");
-document.getElementById("page").classList.add("hidden");
 }
 
 function toggleAdmin(){
@@ -169,61 +187,50 @@ document.getElementById("admin").classList.toggle("hidden");
 }
 }
 
-function saveMain(){
-data.main_en=main_en.value;
-data.main_cn=main_cn.value;
+function saveBasic(){
+data.name=name_input.value;
+data.title_en=title_en.value;
+data.title_cn=title_cn.value;
 save(); render();
 }
 
-function addModule(){
+function addResearch(){
 
-data.modules.push({
-title_en:mod_en.value,
-title_cn:mod_cn.value,
-color:mod_color.value,
-contents:[]
+let enHTML = quillEN.root.innerHTML;
+let cnHTML = quillCN.root.innerHTML;
+
+data.research.push({
+en: enHTML,
+cn: cnHTML
 });
 
 save(); render();
 }
 
-function renderSelector(){
-
-selector.innerHTML="";
-
-data.modules.forEach((m,i)=>{
-selector.innerHTML+=`
-<div onclick="selected=${i}">
-${m.title_en}
-</div>`;
-});
-}
-
-function addContent(){
-
-let file=img.files[0];
-
-if(file){
-let reader=new FileReader();
-reader.onload=function(){
-data.modules[selected].contents.push({
-en:text_en.value,
-cn:text_cn.value,
-img:reader.result
-});
-save(); render();
-};
-reader.readAsDataURL(file);
-}else{
-data.modules[selected].contents.push({
-en:text_en.value,
-cn:text_cn.value
-});
+function delResearch(i){
+data.research.splice(i,1);
 save(); render();
 }
+
+function addPaper(){
+
+data.papers.push({
+title:p_title.value,
+auth:p_auth.value,
+journal:p_journal.value,
+year:p_year.value
+});
+
+save(); render();
 }
+
+window.onload = function(){
+
+quillEN = new Quill('#editor_en',{ theme:'snow' });
+quillCN = new Quill('#editor_cn',{ theme:'snow' });
 
 render();
+};
 
 </script>
 
