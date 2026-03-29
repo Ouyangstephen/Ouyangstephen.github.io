@@ -10,7 +10,7 @@ nav { display:flex; justify-content:space-between; padding:15px; background:blac
 .section { padding:50px; text-align:center; }
 .block { margin:20px auto; width:60%; background:#1e293b; padding:15px; border-radius:10px; }
 .selected { border:2px solid #38bdf8; }
-button { margin:5px; }
+button { margin:5px; padding:5px 10px; }
 .hidden { display:none; }
 </style>
 
@@ -44,31 +44,31 @@ button { margin:5px; }
 
 <h2>Admin Panel</h2>
 
-<input id="name_input">
-<input id="title_en">
-<input id="title_cn">
-<button onclick="saveBasic()">Save</button>
+<input id="name_input" placeholder="Name">
+<input id="title_en" placeholder="Title EN">
+<input id="title_cn" placeholder="Title CN">
+<button type="button" onclick="saveBasic()">Save</button>
 
 <h3>Add Section</h3>
-<input id="sec_en">
-<input id="sec_cn">
-<button onclick="addSection()">Add Section</button>
+<input id="sec_en" placeholder="English Title">
+<input id="sec_cn" placeholder="Chinese Title">
+<button type="button" onclick="addSection()">Add Section</button>
 
-<h3>Select Section</h3>
+<h3>Select Section（点击）</h3>
 <div id="selector"></div>
 
-<h3>Add Text</h3>
-<textarea id="text_en"></textarea>
-<textarea id="text_cn"></textarea>
-<button onclick="addText()">Add Text</button>
+<h3>Add Text Block</h3>
+<textarea id="text_en" placeholder="Text EN"></textarea>
+<textarea id="text_cn" placeholder="Text CN"></textarea>
+<button type="button" onclick="addText()">Add Text</button>
 
-<h3>Add Image</h3>
+<h3>Add Image Block</h3>
 <input type="file" id="img_file">
-<button onclick="addImage()">Add Image</button>
+<button type="button" onclick="addImage()">Add Image</button>
 
 <h3>Upload File</h3>
 <input type="file" id="file_upload">
-<button onclick="uploadFile()">Upload File</button>
+<button type="button" onclick="uploadFile()">Upload File</button>
 
 </div>
 
@@ -89,7 +89,10 @@ function save(){
 localStorage.setItem("site", JSON.stringify(data));
 }
 
-function setLang(l){ lang=l; render(); }
+function setLang(l){
+lang=l;
+render();
+}
 
 function render(){
 
@@ -117,7 +120,7 @@ html+=`<div class="block">
 
 if(b.type==="image"){
 html+=`<div class="block">
-<img src="${b.src}">
+<img src="${b.src}" style="max-width:100%;">
 <button onclick="delBlock(${i},${bi})">Delete</button>
 </div>`;
 }
@@ -150,11 +153,11 @@ save(); render();
 
 function addSection(){
 
-let en=document.getElementById("sec_en").value;
-let cn=document.getElementById("sec_cn").value;
+const en = document.getElementById("sec_en").value.trim();
+const cn = document.getElementById("sec_cn").value.trim();
 
 if(!en){
-alert("Title EN required");
+alert("Please enter English title");
 return;
 }
 
@@ -164,9 +167,14 @@ title_cn:cn,
 blocks:[]
 });
 
-selectedIndex=data.sections.length-1;
+selectedIndex = data.sections.length-1;
+
+document.getElementById("sec_en").value="";
+document.getElementById("sec_cn").value="";
 
 save(); render();
+
+alert("Section added!");
 }
 
 function renderSelector(){
@@ -201,6 +209,9 @@ en:document.getElementById("text_en").value,
 cn:document.getElementById("text_cn").value
 });
 
+document.getElementById("text_en").value="";
+document.getElementById("text_cn").value="";
+
 save(); render();
 }
 
@@ -212,6 +223,11 @@ return;
 }
 
 let file=document.getElementById("img_file").files[0];
+
+if(!file){
+alert("Select a file first");
+return;
+}
 
 let reader=new FileReader();
 reader.onload=function(){
@@ -235,6 +251,11 @@ save(); render();
 function uploadFile(){
 
 let file=document.getElementById("file_upload").files[0];
+
+if(!file){
+alert("Select file first");
+return;
+}
 
 let reader=new FileReader();
 reader.onload=function(){
