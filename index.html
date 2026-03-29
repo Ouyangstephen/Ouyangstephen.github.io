@@ -8,11 +8,10 @@
 body { font-family: Arial; background:#020617; color:white; margin:0; }
 nav { display:flex; justify-content:space-between; padding:15px; background:black; }
 .section { padding:60px 20px; text-align:center; }
-h1 { font-size:40px; }
-h2 { margin-top:50px; font-size:32px; }
-.block { margin:20px auto; width:60%; }
-img { max-width:100%; border-radius:10px; margin-top:10px; }
-button { margin:5px; padding:5px 10px; }
+h2 { cursor:pointer; }
+.block { margin:20px auto; width:60%; background:#1e293b; padding:15px; border-radius:10px; }
+.selected { border:2px solid #38bdf8; }
+button { margin:5px; }
 .hidden { display:none; }
 </style>
 
@@ -41,28 +40,34 @@ button { margin:5px; padding:5px 10px; }
 
 <h2>Admin Panel</h2>
 
-<input id="name_input" placeholder="Name">
+<input id="name_input">
 <input id="title_en">
 <input id="title_cn">
 <button onclick="saveBasic()">Save</button>
 
-<h3>Add Section（大标题）</h3>
-<input id="sec_en" placeholder="Title EN">
-<input id="sec_cn" placeholder="Title CN">
+<h3>Add Section</h3>
+<input id="sec_en">
+<input id="sec_cn">
 <button onclick="addSection()">Add Section</button>
 
-<h3>Add Content（内容块）</h3>
-<input id="sec_index" placeholder="Section index">
-<textarea id="text_en" placeholder="Text EN"></textarea>
-<textarea id="text_cn" placeholder="Text CN"></textarea>
+<h3>Select Section（点击）</h3>
+<div id="selector"></div>
+
+<h3>Add Text Block</h3>
+<textarea id="text_en"></textarea>
+<textarea id="text_cn"></textarea>
+<button onclick="addText()">Add Text</button>
+
+<h3>Add Image Block</h3>
 <input type="file" id="img_file">
-<button onclick="addContent()">Add Content</button>
+<button onclick="addImage()">Add Image</button>
 
 </div>
 
 <script>
 
 let lang="en";
+let selectedIndex=null;
 
 let data = JSON.parse(localStorage.getItem("site")) || {
     name:"Stephen Ouyang",
@@ -75,10 +80,7 @@ function save(){
     localStorage.setItem("site", JSON.stringify(data));
 }
 
-function setLang(l){
-    lang=l;
-    render();
-}
+function setLang(l){ lang=l; render(); }
 
 function render(){
 
@@ -89,80 +91,128 @@ function render(){
 
     data.sections.forEach((s,i)=>{
 
-        let html = `
-        <div class="section">
-            <h2>${lang==="en"?s.title_en:s.title_cn}</h2>
-        `;
+        let html = `<div class="section">
+        <h2 onclick="openSection(${i})">${lang==="en"?s.title_en:s.title_cn}</h2>`;
 
-        if(s.contents){
-            s.contents.forEach((c,ci)=>{
-                html += `
-                <div class="block">
-                    <p>${lang==="en"?c.en:c.cn}</p>
-                    ${c.img ? `<img src="${c.img}">` : ""}
-                    <button onclick="delContent(${i},${ci})">Delete</button>
-                </div>
-                `;
+        if(s.blocks){
+            s.blocks.forEach((b,bi)=>{
+
+                if(b.type==="text"){
+                    html+=`
+                    <div class="block">
+                    <p>${lang==="en"?b.en:b.cn}</p>
+                    <button onclick="delBlock(${i},${bi})">Delete</button>
+                    </div>`;
+                }
+
+                if(b.type==="image"){
+                    html+=`
+                    <div class="block">
+                    <img src="${b.src}">
+                    <button onclick="delBlock(${i},${bi})">Delete</button>
+                    </div>`;
+                }
+
             });
         }
 
-        html += `</div>`;
-        content.innerHTML += html;
+        html+="</div>";
+        content.innerHTML+=html;
     });
+
+    renderSelector();
+}
+
+function openSection(i){
+    window.location.search="?section="+i;
 }
 
 function toggleAdmin(){
     let pwd = prompt("Password:");
-    if(pwd==="1234"){
+    if(pwd==="1234567890qw"){
         admin.classList.toggle("hidden");
+        renderSelector();
     }
 }
 
 function saveBasic(){
-    data.name = name_input.value;
-    data.title_en = title_en.value;
-    data.title_cn = title_cn.value;
+    data.name=name_input.value;
+    data.title_en=title_en.value;
+    data.title_cn=title_cn.value;
     save(); render();
 }
 
 function addSection(){
+
     data.sections.push({
         title_en:sec_en.value,
         title_cn:sec_cn.value,
-        contents:[]
+        blocks:[]
     });
+
+    selectedIndex = data.sections.length-1; // 自动选中
     save(); render();
 }
 
-function addContent(){
+function renderSelector(){
 
-    let i = sec_index.value;
+    selector.innerHTML="";
+
+    data.sections.forEach((s,i)=>{
+        selector.innerHTML+=`
+        <div onclick="selectSection(${i})"
+        class="${selectedIndex===i?'selected':''}">
+        ${s.title_en}
+        </div>`;
+    });
+}
+
+function selectSection(i){
+    selectedIndex=i;
+    renderSelector();
+}
+
+function addText(){
+
+    if(selectedIndex===null){
+        alert("Select section first");
+        return;
+    }
+
+    data.sections[selectedIndex].blocks.push({
+        type:"text",
+        en:text_en.value,
+        cn:text_cn.value
+    });
+
+    save(); render();
+}
+
+function addImage(){
+
+    if(selectedIndex===null){
+        alert("Select section first");
+        return;
+    }
 
     let file = img_file.files[0];
 
-    if(file){
-        let reader = new FileReader();
-        reader.onload = function(){
-            data.sections[i].contents.push({
-                en:text_en.value,
-                cn:text_cn.value,
-                img:reader.result
-            });
-            save(); render();
-        };
-        reader.readAsDataURL(file);
-    }else{
-        data.sections[i].contents.push({
-            en:text_en.value,
-            cn:text_cn.value,
-            img:null
+    let reader=new FileReader();
+    reader.onload=function(){
+
+        data.sections[selectedIndex].blocks.push({
+            type:"image",
+            src:reader.result
         });
+
         save(); render();
-    }
+    };
+
+    reader.readAsDataURL(file);
 }
 
-function delContent(i,ci){
-    data.sections[i].contents.splice(ci,1);
+function delBlock(i,bi){
+    data.sections[i].blocks.splice(bi,1);
     save(); render();
 }
 
@@ -172,3 +222,4 @@ render();
 
 </body>
 </html>
+
