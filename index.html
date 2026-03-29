@@ -9,17 +9,19 @@
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
 <!-- MathJax -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)'], ['$', '$']] }
+};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 <style>
-body { margin:0; font-family: Georgia, serif; background:white; }
-
-/* layout */
+body { margin:0; font-family: Georgia; background:white; }
 .container { display:flex; }
 
-/* sidebar */
 .sidebar {
-width:250px;
+width:220px;
 background:#f5f5f5;
 height:100vh;
 padding:20px;
@@ -28,14 +30,12 @@ position:fixed;
 
 .sidebar div { margin:10px 0; cursor:pointer; }
 
-/* main */
 .main {
-margin-left:270px;
+margin-left:240px;
 padding:40px;
 max-width:900px;
 }
 
-/* content */
 .block {
 margin:20px 0;
 padding:15px;
@@ -43,15 +43,10 @@ background:#fafafa;
 border-left:4px solid #007acc;
 }
 
-.paper {
-margin:15px 0;
-}
+.paper { margin:15px 0; }
 
-.paper-title { font-weight:bold; }
-.paper-journal { font-style:italic; }
-
-/* admin */
 .hidden { display:none; }
+
 button { margin:5px; }
 </style>
 
@@ -64,9 +59,9 @@ button { margin:5px; }
 <div class="sidebar">
 <h2 id="name"></h2>
 
-<div onclick="showPage('home')">Home</div>
-<div onclick="showPage('research')">Research</div>
-<div onclick="showPage('papers')">Publications</div>
+<div onclick="switchPage('home')">Home</div>
+<div onclick="switchPage('research')">Research</div>
+<div onclick="switchPage('papers')">Publications</div>
 
 <hr>
 
@@ -82,27 +77,27 @@ button { margin:5px; }
 <!-- ADMIN -->
 <div id="admin" class="hidden main">
 
-<h2>Admin</h2>
+<h2>Admin Panel</h2>
 
 <h3>Basic</h3>
-<input id="name_input">
-<input id="title_en">
-<input id="title_cn">
+<input id="name_input" placeholder="Name">
+<input id="title_en" placeholder="Title EN">
+<input id="title_cn" placeholder="Title CN">
 <button onclick="saveBasic()">Save</button>
 
-<h3>Editor EN</h3>
-<div id="editor_en" style="background:white;height:150px;"></div>
+<h3>Research Editor (EN)</h3>
+<div id="editor_en" style="height:150px;background:white;"></div>
 
-<h3>Editor CN</h3>
-<div id="editor_cn" style="background:white;height:150px;"></div>
+<h3>Research Editor (CN)</h3>
+<div id="editor_cn" style="height:150px;background:white;"></div>
 
-<button onclick="addResearch()">Add Research Block</button>
+<button onclick="addResearch()">Add Research</button>
 
 <h3>Add Paper</h3>
-<input id="p_title">
-<input id="p_auth">
-<input id="p_journal">
-<input id="p_year">
+<input id="p_title" placeholder="Title">
+<input id="p_auth" placeholder="Authors">
+<input id="p_journal" placeholder="Journal">
+<input id="p_year" placeholder="Year">
 <button onclick="addPaper()">Add Paper</button>
 
 </div>
@@ -110,8 +105,7 @@ button { margin:5px; }
 <script>
 
 let lang="en";
-let current="home";
-
+let currentPage="home";
 let quillEN, quillCN;
 
 let data = JSON.parse(localStorage.getItem("site")) || {
@@ -126,26 +120,28 @@ function save(){
 localStorage.setItem("site", JSON.stringify(data));
 }
 
-function setLang(l){ lang=l; render(); }
+function setLang(l){
+lang=l;
+render();
+}
 
-function showPage(p){
-current=p;
+function switchPage(p){
+currentPage=p;
 render();
 }
 
 function render(){
 
 document.getElementById("name").innerText = data.name;
-
 let main=document.getElementById("main");
 
-if(current==="home"){
+if(currentPage==="home"){
 main.innerHTML = `
 <h1>${lang==="en"?data.title_en:data.title_cn}</h1>
 `;
 }
 
-if(current==="research"){
+if(currentPage==="research"){
 
 let html="<h1>Research</h1>";
 
@@ -153,7 +149,7 @@ data.research.forEach((r,i)=>{
 html+=`
 <div class="block">
 ${lang==="en"?r.en:r.cn}
-<button onclick="delResearch(${i})">Delete</button>
+<button onclick="deleteResearch(${i})">Delete</button>
 </div>`;
 });
 
@@ -162,16 +158,16 @@ main.innerHTML=html;
 MathJax.typeset(); // 渲染公式
 }
 
-if(current==="papers"){
+if(currentPage==="papers"){
 
 let html="<h1>Publications</h1>";
 
 data.papers.forEach(p=>{
 html+=`
 <div class="paper">
-<div class="paper-title">${p.title}</div>
-<div>${p.auth}</div>
-<div class="paper-journal">${p.journal} (${p.year})</div>
+<b>${p.title}</b><br>
+${p.auth}<br>
+<i>${p.journal} (${p.year})</i>
 </div>`;
 });
 
@@ -188,43 +184,64 @@ document.getElementById("admin").classList.toggle("hidden");
 }
 
 function saveBasic(){
-data.name=name_input.value;
-data.title_en=title_en.value;
-data.title_cn=title_cn.value;
+data.name=document.getElementById("name_input").value;
+data.title_en=document.getElementById("title_en").value;
+data.title_cn=document.getElementById("title_cn").value;
 save(); render();
 }
 
 function addResearch(){
 
+if(!quillEN || !quillCN){
+alert("Editor not ready");
+return;
+}
+
 let enHTML = quillEN.root.innerHTML;
 let cnHTML = quillCN.root.innerHTML;
+
+if(enHTML.trim()==="<p><br></p>"){
+alert("Please write something");
+return;
+}
 
 data.research.push({
 en: enHTML,
 cn: cnHTML
 });
 
-save(); render();
+save();
+render();
+
+quillEN.setText("");
+quillCN.setText("");
 }
 
-function delResearch(i){
+function deleteResearch(i){
 data.research.splice(i,1);
 save(); render();
 }
 
 function addPaper(){
 
+let title=document.getElementById("p_title").value;
+
+if(!title){
+alert("Title required");
+return;
+}
+
 data.papers.push({
-title:p_title.value,
-auth:p_auth.value,
-journal:p_journal.value,
-year:p_year.value
+title:title,
+auth:document.getElementById("p_auth").value,
+journal:document.getElementById("p_journal").value,
+year:document.getElementById("p_year").value
 });
 
 save(); render();
 }
 
-window.onload = function(){
+window.onload=function(){
 
 quillEN = new Quill('#editor_en',{ theme:'snow' });
 quillCN = new Quill('#editor_cn',{ theme:'snow' });
