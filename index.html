@@ -5,42 +5,83 @@
 <title>Academic Website</title>
 
 <style>
-body { font-family: Arial; background:white; color:black; margin:0; }
-nav { display:flex; justify-content:space-between; padding:15px; background:#f5f5f5; }
-.section { padding:50px; text-align:center; }
-.block { margin:20px auto; width:60%; background:#f0f0f0; padding:15px; border-radius:10px; }
-.selected { border:2px solid #007acc; }
-button { margin:5px; padding:5px 10px; }
+body { margin:0; font-family: Arial; background:white; color:black; }
+
+/* Layout */
+.container { display:flex; }
+
+/* Sidebar */
+.sidebar {
+width:250px;
+background:#f5f5f5;
+height:100vh;
+padding:20px;
+position:fixed;
+}
+
+.sidebar h2 { margin-bottom:20px; }
+
+.sidebar div {
+margin:10px 0;
+cursor:pointer;
+}
+
+.sidebar div:hover { color:#007acc; }
+
+/* Main */
+.main {
+margin-left:270px;
+padding:40px;
+width:100%;
+}
+
+/* Content blocks */
+.block {
+margin:20px 0;
+padding:15px;
+background:#fafafa;
+border-left:4px solid #007acc;
+}
+
+img { max-width:100%; margin-top:10px; }
+
+/* Admin */
 .hidden { display:none; }
+
+button { margin:5px; }
+.selected { font-weight:bold; }
+
 </style>
 
 </head>
 
 <body>
 
-<nav>
+<div class="container">
+
+<!-- Sidebar -->
+<div class="sidebar">
 <h2 id="name"></h2>
-<div>
+
+<div onclick="showSection('home')">Home</div>
+<div onclick="showSection(0)">Section 1</div>
+<div onclick="showSection(1)">Section 2</div>
+<div onclick="showSection(2)">Section 3</div>
+
+<hr>
+
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
 <button onclick="toggleAdmin()">Admin</button>
 </div>
-</nav>
 
-<div class="section">
-<h1 id="mainTitle"></h1>
-<p id="title"></p>
-</div>
+<!-- Main -->
+<div class="main" id="main"></div>
 
-<div id="content"></div>
-
-<div class="section">
-<h2>Files</h2>
-<div id="fileList"></div>
 </div>
 
 <!-- ADMIN -->
-<div id="admin" class="hidden section">
+<div id="admin" class="hidden main">
 
 <h2>Admin Panel</h2>
 
@@ -49,28 +90,28 @@ button { margin:5px; padding:5px 10px; }
 <input id="main_cn" placeholder="Main Title CN">
 <input id="title_en" placeholder="Subtitle EN">
 <input id="title_cn" placeholder="Subtitle CN">
-<button type="button" onclick="saveBasic()">Save</button>
+<button onclick="saveBasic()">Save</button>
 
 <h3>Add Section</h3>
-<input id="sec_en" placeholder="English Title">
-<input id="sec_cn" placeholder="Chinese Title">
-<button type="button" onclick="addSection()">Add Section</button>
+<input id="sec_en">
+<input id="sec_cn">
+<button onclick="addSection()">Add</button>
 
 <h3>Select Section</h3>
 <div id="selector"></div>
 
-<h3>Add Text Block</h3>
+<h3>Add Text</h3>
 <textarea id="text_en"></textarea>
 <textarea id="text_cn"></textarea>
-<button type="button" onclick="addText()">Add Text</button>
+<button onclick="addText()">Add</button>
 
-<h3>Add Image Block</h3>
+<h3>Add Image</h3>
 <input type="file" id="img_file">
-<button type="button" onclick="addImage()">Add Image</button>
+<button onclick="addImage()">Add</button>
 
 <h3>Upload File</h3>
 <input type="file" id="file_upload">
-<button type="button" onclick="uploadFile()">Upload File</button>
+<button onclick="uploadFile()">Upload</button>
 
 </div>
 
@@ -78,23 +119,24 @@ button { margin:5px; padding:5px 10px; }
 
 let lang="en";
 let selectedIndex=null;
+let currentView="home";
 
 let data = JSON.parse(localStorage.getItem("site")) || {
 name:"Stephen Ouyang",
 main_en:"Total Synthesis",
 main_cn:"全合成",
-title_en:"Future researcher in pharmaceutical total synthesis",
-title_cn:"未来从事药物全合成研究的科研人员",
+title_en:"Future researcher",
+title_cn:"未来科研人员",
 sections:[],
 files:[]
 };
 
-function save(){
-localStorage.setItem("site", JSON.stringify(data));
-}
+function save(){ localStorage.setItem("site", JSON.stringify(data)); }
 
-function setLang(l){
-lang=l;
+function setLang(l){ lang=l; render(); }
+
+function showSection(i){
+currentView=i;
 render();
 }
 
@@ -102,19 +144,21 @@ function render(){
 
 document.getElementById("name").innerText = data.name;
 
-document.getElementById("mainTitle").innerText =
-(lang==="en")?data.main_en:data.main_cn;
+let main=document.getElementById("main");
 
-document.getElementById("title").innerText =
-(lang==="en")?data.title_en:data.title_cn;
+if(currentView==="home"){
 
-let content=document.getElementById("content");
-content.innerHTML="";
+main.innerHTML = `
+<h1>${lang==="en"?data.main_en:data.main_cn}</h1>
+<p>${lang==="en"?data.title_en:data.title_cn}</p>
+`;
 
-data.sections.forEach((s,i)=>{
+return;
+}
 
-let html=`<div class="section">
-<h2 onclick="selectSection(${i})">${lang==="en"?s.title_en:s.title_cn}</h2>`;
+let s=data.sections[currentView];
+
+let html=`<h1>${lang==="en"?s.title_en:s.title_cn}</h1>`;
 
 if(s.blocks){
 s.blocks.forEach((b,bi)=>{
@@ -122,62 +166,51 @@ s.blocks.forEach((b,bi)=>{
 if(b.type==="text"){
 html+=`<div class="block">
 <p>${lang==="en"?b.en:b.cn}</p>
-<button onclick="delBlock(${i},${bi})">Delete</button>
+<button onclick="delBlock(${currentView},${bi})">Delete</button>
 </div>`;
 }
 
 if(b.type==="image"){
 html+=`<div class="block">
-<img src="${b.src}" style="max-width:100%;">
-<button onclick="delBlock(${i},${bi})">Delete</button>
+<img src="${b.src}">
+<button onclick="delBlock(${currentView},${bi})">Delete</button>
 </div>`;
 }
 
 });
 }
 
-html+="</div>";
-content.innerHTML+=html;
-});
+main.innerHTML=html;
 
 renderSelector();
-renderFiles();
 }
 
 function toggleAdmin(){
-let pwd = prompt("Password:");
+let pwd=prompt("Password:");
 if(pwd==="1234567890qw"){
 document.getElementById("admin").classList.toggle("hidden");
 
-document.getElementById("name_input").value = data.name;
-document.getElementById("main_en").value = data.main_en;
-document.getElementById("main_cn").value = data.main_cn;
-document.getElementById("title_en").value = data.title_en;
-document.getElementById("title_cn").value = data.title_cn;
-
-renderSelector();
+name_input.value=data.name;
+main_en.value=data.main_en;
+main_cn.value=data.main_cn;
+title_en.value=data.title_en;
+title_cn.value=data.title_cn;
 }
 }
 
 function saveBasic(){
-data.name = document.getElementById("name_input").value;
-data.main_en = document.getElementById("main_en").value;
-data.main_cn = document.getElementById("main_cn").value;
-data.title_en = document.getElementById("title_en").value;
-data.title_cn = document.getElementById("title_cn").value;
-
+data.name=name_input.value;
+data.main_en=main_en.value;
+data.main_cn=main_cn.value;
+data.title_en=title_en.value;
+data.title_cn=title_cn.value;
 save(); render();
 }
 
 function addSection(){
 
-const en = document.getElementById("sec_en").value.trim();
-const cn = document.getElementById("sec_cn").value.trim();
-
-if(!en){
-alert("Please enter English title");
-return;
-}
+let en=sec_en.value;
+let cn=sec_cn.value;
 
 data.sections.push({
 title_en:en,
@@ -185,65 +218,37 @@ title_cn:cn,
 blocks:[]
 });
 
-selectedIndex = data.sections.length-1;
-
-document.getElementById("sec_en").value="";
-document.getElementById("sec_cn").value="";
+selectedIndex=data.sections.length-1;
 
 save(); render();
 }
 
 function renderSelector(){
 
-let selector=document.getElementById("selector");
 selector.innerHTML="";
 
 data.sections.forEach((s,i)=>{
 selector.innerHTML+=`
-<div onclick="selectSection(${i})"
-class="${selectedIndex===i?'selected':''}">
-${s.title_en}
-</div>`;
+<div onclick="selectSection(${i})">${s.title_en}</div>`;
 });
 }
 
-function selectSection(i){
-selectedIndex=i;
-renderSelector();
-}
+function selectSection(i){ selectedIndex=i; }
 
 function addText(){
 
-if(selectedIndex===null){
-alert("Select section first");
-return;
-}
-
 data.sections[selectedIndex].blocks.push({
 type:"text",
-en:document.getElementById("text_en").value,
-cn:document.getElementById("text_cn").value
+en:text_en.value,
+cn:text_cn.value
 });
-
-document.getElementById("text_en").value="";
-document.getElementById("text_cn").value="";
 
 save(); render();
 }
 
 function addImage(){
 
-if(selectedIndex===null){
-alert("Select section first");
-return;
-}
-
-let file=document.getElementById("img_file").files[0];
-
-if(!file){
-alert("Select a file first");
-return;
-}
+let file=img_file.files[0];
 
 let reader=new FileReader();
 reader.onload=function(){
@@ -266,12 +271,7 @@ save(); render();
 
 function uploadFile(){
 
-let file=document.getElementById("file_upload").files[0];
-
-if(!file){
-alert("Select file first");
-return;
-}
+let file=file_upload.files[0];
 
 let reader=new FileReader();
 reader.onload=function(){
@@ -285,25 +285,6 @@ save(); render();
 };
 
 reader.readAsDataURL(file);
-}
-
-function renderFiles(){
-
-let list=document.getElementById("fileList");
-list.innerHTML="";
-
-data.files.forEach((f,i)=>{
-list.innerHTML+=`
-<div>
-<a href="${f.data}" download="${f.name}">${f.name}</a>
-<button onclick="delFile(${i})">Delete</button>
-</div>`;
-});
-}
-
-function delFile(i){
-data.files.splice(i,1);
-save(); render();
 }
 
 render();
