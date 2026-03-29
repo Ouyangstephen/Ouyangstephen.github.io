@@ -7,11 +7,14 @@
 <style>
 body { font-family: Arial; background:#020617; color:white; margin:0; }
 nav { display:flex; justify-content:space-between; padding:15px; background:black; }
-.section { padding:40px; text-align:center; }
-.card { background:#1e293b; margin:15px auto; padding:20px; width:60%; border-radius:10px; cursor:pointer; }
-img { max-width:100%; margin-top:10px; border-radius:8px; }
+.section { padding:60px 20px; text-align:center; }
+h1 { font-size:40px; }
+h2 { margin-top:50px; font-size:32px; cursor:pointer; }
+.block { margin:20px auto; width:60%; }
+img { max-width:100%; border-radius:10px; margin-top:10px; }
 button { margin:5px; padding:5px 10px; }
 .hidden { display:none; }
+.selected { border:2px solid #38bdf8; padding:10px; }
 </style>
 
 </head>
@@ -27,69 +30,49 @@ button { margin:5px; padding:5px 10px; }
   </div>
 </nav>
 
-<div id="home">
-
 <div class="section">
   <h1>Total Synthesis</h1>
   <p id="title"></p>
 </div>
 
-<div class="section">
-  <h2>About</h2>
-  <p id="about"></p>
-</div>
-
-<div class="section">
-  <h2>Modules</h2>
-  <div id="modules"></div>
-</div>
-
-</div>
-
-<!-- DETAIL PAGE -->
-<div id="detail" class="hidden section"></div>
+<div id="content"></div>
 
 <!-- ADMIN -->
 <div id="admin" class="hidden section">
 
 <h2>Admin Panel</h2>
 
-<input id="name_input">
+<input id="name_input" placeholder="Name">
 <input id="title_en">
 <input id="title_cn">
-<textarea id="about_en"></textarea>
-<textarea id="about_cn"></textarea>
 <button onclick="saveBasic()">Save</button>
 
-<h3>Add Module</h3>
-<input id="m_title_en">
-<input id="m_title_cn">
-<button onclick="addModule()">Add Module</button>
+<h3>Add Section</h3>
+<input id="sec_en">
+<input id="sec_cn">
+<button onclick="addSection()">Add Section</button>
 
-<h3>Add Text to Module</h3>
-<input id="text_index" placeholder="Module index">
+<h3>Select Section（点击选择）</h3>
+<div id="selector"></div>
+
+<h3>Add Content</h3>
 <textarea id="text_en"></textarea>
 <textarea id="text_cn"></textarea>
-<button onclick="addText()">Add Text</button>
-
-<h3>Upload Image to Module</h3>
-<input id="img_index" placeholder="Module index">
 <input type="file" id="img_file">
-<button onclick="addImage()">Upload</button>
+<button onclick="addContent()">Add Content</button>
 
 </div>
 
 <script>
 
 let lang="en";
+let selectedIndex = null;
 
 let data = JSON.parse(localStorage.getItem("site")) || {
     name:"Stephen Ouyang",
     title_en:"Future researcher in pharmaceutical total synthesis",
     title_cn:"未来从事药物全合成研究的科研人员",
-    about_en:"I focus on total synthesis.",
-    about_cn:"我专注于全合成。",
-    modules:[]
+    sections:[]
 };
 
 function save(){
@@ -103,73 +86,61 @@ function setLang(l){
 
 function getParam(){
     let url = new URL(window.location.href);
-    return url.searchParams.get("module");
+    return url.searchParams.get("section");
 }
 
 function render(){
 
+    name.innerText = data.name;
+    title.innerText = (lang==="en")?data.title_en:data.title_cn;
+
     let idx = getParam();
 
-    name.innerText = data.name;
+    content.innerHTML="";
 
     if(idx !== null){
-        showDetail(idx);
+        renderSingle(idx);
         return;
     }
 
-    home.style.display="block";
-    detail.classList.add("hidden");
-
-    title.innerText = (lang==="en")?data.title_en:data.title_cn;
-    about.innerText = (lang==="en")?data.about_en:data.about_cn;
-
-    modules.innerHTML="";
-
-    data.modules.forEach((m,i)=>{
-        modules.innerHTML += `
-        <div class="card" onclick="openModule(${i})">
-            <h3>${lang==="en"?m.title_en:m.title_cn}</h3>
+    data.sections.forEach((s,i)=>{
+        content.innerHTML += `
+        <div class="section">
+            <h2 onclick="openSection(${i})">${lang==="en"?s.title_en:s.title_cn}</h2>
         </div>`;
     });
+
+    renderSelector();
 }
 
-function openModule(i){
-    window.location.search = "?module=" + i;
-}
+function renderSingle(i){
 
-function showDetail(i){
-
-    home.style.display="none";
-    detail.classList.remove("hidden");
-
-    let m = data.modules[i];
+    let s = data.sections[i];
 
     let html = `
-    <h2>${lang==="en"?m.title_en:m.title_cn}</h2>
-    <button onclick="back()">Back</button>
+    <div class="section">
+        <h2>${lang==="en"?s.title_en:s.title_cn}</h2>
+        <button onclick="back()">Back</button>
     `;
 
-    if(m.texts){
-        m.texts.forEach((t,ti)=>{
+    if(s.contents){
+        s.contents.forEach((c,ci)=>{
             html += `
-            <div class="card">
-                <p>${lang==="en"?t.en:t.cn}</p>
-                <button onclick="delText(${i},${ti})">Delete</button>
+            <div class="block">
+                <p>${lang==="en"?c.en:c.cn}</p>
+                ${c.img ? `<img src="${c.img}">` : ""}
+                <button onclick="delContent(${i},${ci})">Delete</button>
             </div>`;
         });
     }
 
-    if(m.images){
-        m.images.forEach((img,ii)=>{
-            html += `
-            <div class="card">
-                <img src="${img}">
-                <button onclick="delImg(${i},${ii})">Delete</button>
-            </div>`;
-        });
-    }
+    html += "</div>";
 
-    detail.innerHTML = html;
+    content.innerHTML = html;
+}
+
+function openSection(i){
+    window.location.search = "?section=" + i;
 }
 
 function back(){
@@ -178,14 +149,14 @@ function back(){
 
 function toggleAdmin(){
     let pwd = prompt("Password:");
-    if(pwd==="1234"){
+    if(pwd==="1234567890qw"){
         admin.classList.toggle("hidden");
 
         name_input.value = data.name;
         title_en.value = data.title_en;
         title_cn.value = data.title_cn;
-        about_en.value = data.about_en;
-        about_cn.value = data.about_cn;
+
+        renderSelector();
     }
 }
 
@@ -193,49 +164,68 @@ function saveBasic(){
     data.name = name_input.value;
     data.title_en = title_en.value;
     data.title_cn = title_cn.value;
-    data.about_en = about_en.value;
-    data.about_cn = about_cn.value;
     save(); render();
 }
 
-function addModule(){
-    data.modules.push({
-        title_en:m_title_en.value,
-        title_cn:m_title_cn.value,
-        texts:[],
-        images:[]
+function addSection(){
+    data.sections.push({
+        title_en:sec_en.value,
+        title_cn:sec_cn.value,
+        contents:[]
     });
     save(); render();
 }
 
-function addText(){
-    let i = text_index.value;
-    data.modules[i].texts.push({
-        en:text_en.value,
-        cn:text_cn.value
+function renderSelector(){
+
+    selector.innerHTML="";
+
+    data.sections.forEach((s,i)=>{
+        selector.innerHTML += `
+        <div onclick="selectSection(${i})"
+        class="${selectedIndex===i?'selected':''}">
+        ${s.title_en}
+        </div>`;
     });
-    save(); render();
 }
 
-function delText(i,ti){
-    data.modules[i].texts.splice(ti,1);
-    save(); render();
+function selectSection(i){
+    selectedIndex = i;
+    renderSelector();
 }
 
-function addImage(){
-    let i = img_index.value;
+function addContent(){
+
+    if(selectedIndex===null){
+        alert("Please select a section first");
+        return;
+    }
+
     let file = img_file.files[0];
 
-    let reader = new FileReader();
-    reader.onload = function(){
-        data.modules[i].images.push(reader.result);
+    if(file){
+        let reader = new FileReader();
+        reader.onload = function(){
+            data.sections[selectedIndex].contents.push({
+                en:text_en.value,
+                cn:text_cn.value,
+                img:reader.result
+            });
+            save(); render();
+        };
+        reader.readAsDataURL(file);
+    }else{
+        data.sections[selectedIndex].contents.push({
+            en:text_en.value,
+            cn:text_cn.value,
+            img:null
+        });
         save(); render();
-    };
-    reader.readAsDataURL(file);
+    }
 }
 
-function delImg(i,ii){
-    data.modules[i].images.splice(ii,1);
+function delContent(i,ci){
+    data.sections[i].contents.splice(ci,1);
     save(); render();
 }
 
