@@ -8,7 +8,8 @@
 body { font-family: Arial; background:#020617; color:white; margin:0; }
 nav { display:flex; justify-content:space-between; padding:15px; background:black; }
 .section { padding:40px; text-align:center; }
-.card { background:#1e293b; margin:10px auto; padding:15px; width:60%; border-radius:10px; }
+.card { background:#1e293b; margin:15px auto; padding:20px; width:60%; border-radius:10px; cursor:pointer; }
+img { max-width:100%; margin-top:10px; border-radius:8px; }
 button { margin:5px; padding:5px 10px; }
 .hidden { display:none; }
 </style>
@@ -26,6 +27,8 @@ button { margin:5px; padding:5px 10px; }
   </div>
 </nav>
 
+<div id="home">
+
 <div class="section">
   <h1>Total Synthesis</h1>
   <p id="title"></p>
@@ -37,55 +40,48 @@ button { margin:5px; padding:5px 10px; }
 </div>
 
 <div class="section">
-  <h2>Sections</h2>
-  <div id="sections"></div>
+  <h2>Modules</h2>
+  <div id="modules"></div>
 </div>
 
-<div class="section">
-  <h2>Publications</h2>
-  <div id="pubs"></div>
 </div>
 
-<div class="section">
-  <h2>Files</h2>
-  <div id="files"></div>
-</div>
+<!-- DETAIL PAGE -->
+<div id="detail" class="hidden section"></div>
 
 <!-- ADMIN -->
 <div id="admin" class="hidden section">
 
 <h2>Admin Panel</h2>
 
-<input id="name_input" placeholder="Name">
+<input id="name_input">
 <input id="title_en">
 <input id="title_cn">
 <textarea id="about_en"></textarea>
 <textarea id="about_cn"></textarea>
 <button onclick="saveBasic()">Save</button>
 
-<h3>Add Section</h3>
-<input id="s_en" placeholder="Title EN">
-<input id="s_cn" placeholder="Title CN">
-<textarea id="c_en"></textarea>
-<textarea id="c_cn"></textarea>
-<button onclick="addSection()">Add</button>
+<h3>Add Module</h3>
+<input id="m_title_en">
+<input id="m_title_cn">
+<button onclick="addModule()">Add Module</button>
 
-<h3>Add Publication</h3>
-<input id="p_title">
-<input id="p_auth">
-<input id="p_journal">
-<input id="p_year">
-<button onclick="addPub()">Add</button>
+<h3>Add Text to Module</h3>
+<input id="text_index" placeholder="Module index">
+<textarea id="text_en"></textarea>
+<textarea id="text_cn"></textarea>
+<button onclick="addText()">Add Text</button>
 
-<h3>Upload File</h3>
-<input type="file" id="file">
-<button onclick="upload()">Upload</button>
+<h3>Upload Image to Module</h3>
+<input id="img_index" placeholder="Module index">
+<input type="file" id="img_file">
+<button onclick="addImage()">Upload</button>
 
 </div>
 
 <script>
 
-let lang = "en";
+let lang="en";
 
 let data = JSON.parse(localStorage.getItem("site")) || {
     name:"Stephen Ouyang",
@@ -93,9 +89,7 @@ let data = JSON.parse(localStorage.getItem("site")) || {
     title_cn:"未来从事药物全合成研究的科研人员",
     about_en:"I focus on total synthesis.",
     about_cn:"我专注于全合成。",
-    sections:[],
-    pubs:[],
-    files:[]
+    modules:[]
 };
 
 function save(){
@@ -103,50 +97,83 @@ function save(){
 }
 
 function setLang(l){
-    lang = l;
-    render();   // ✅ 关键修复
+    lang=l;
+    render();
+}
+
+function getParam(){
+    let url = new URL(window.location.href);
+    return url.searchParams.get("module");
 }
 
 function render(){
 
+    let idx = getParam();
+
     name.innerText = data.name;
+
+    if(idx !== null){
+        showDetail(idx);
+        return;
+    }
+
+    home.style.display="block";
+    detail.classList.add("hidden");
 
     title.innerText = (lang==="en")?data.title_en:data.title_cn;
     about.innerText = (lang==="en")?data.about_en:data.about_cn;
 
-    // sections
-    sections.innerHTML="";
-    data.sections.forEach((s,i)=>{
-        sections.innerHTML += `
-        <div class="card">
-        <h3>${lang==="en"?s.en:s.cn}</h3>
-        <p>${lang==="en"?s.c_en:s.c_cn}</p>
-        <button onclick="delSection(${i})">Delete</button>
+    modules.innerHTML="";
+
+    data.modules.forEach((m,i)=>{
+        modules.innerHTML += `
+        <div class="card" onclick="openModule(${i})">
+            <h3>${lang==="en"?m.title_en:m.title_cn}</h3>
         </div>`;
     });
+}
 
-    // publications
-    pubs.innerHTML="";
-    data.pubs.forEach((p,i)=>{
-        pubs.innerHTML += `
-        <div class="card">
-        <b>${p.title}</b><br>
-        ${p.auth} (${p.year})<br>
-        ${p.journal}<br>
-        <button onclick="delPub(${i})">Delete</button>
-        </div>`;
-    });
+function openModule(i){
+    window.location.search = "?module=" + i;
+}
 
-    // files
-    files.innerHTML="";
-    data.files.forEach((f,i)=>{
-        files.innerHTML += `
-        <div>
-        <a href="${f.url}" target="_blank">${f.name}</a>
-        <button onclick="delFile(${i})">Delete</button>
-        </div>`;
-    });
+function showDetail(i){
 
+    home.style.display="none";
+    detail.classList.remove("hidden");
+
+    let m = data.modules[i];
+
+    let html = `
+    <h2>${lang==="en"?m.title_en:m.title_cn}</h2>
+    <button onclick="back()">Back</button>
+    `;
+
+    if(m.texts){
+        m.texts.forEach((t,ti)=>{
+            html += `
+            <div class="card">
+                <p>${lang==="en"?t.en:t.cn}</p>
+                <button onclick="delText(${i},${ti})">Delete</button>
+            </div>`;
+        });
+    }
+
+    if(m.images){
+        m.images.forEach((img,ii)=>{
+            html += `
+            <div class="card">
+                <img src="${img}">
+                <button onclick="delImg(${i},${ii})">Delete</button>
+            </div>`;
+        });
+    }
+
+    detail.innerHTML = html;
+}
+
+function back(){
+    window.location.href = window.location.pathname;
 }
 
 function toggleAdmin(){
@@ -171,58 +198,44 @@ function saveBasic(){
     save(); render();
 }
 
-function addSection(){
-    data.sections.push({
-        en:s_en.value,
-        cn:s_cn.value,
-        c_en:c_en.value,
-        c_cn:c_cn.value
+function addModule(){
+    data.modules.push({
+        title_en:m_title_en.value,
+        title_cn:m_title_cn.value,
+        texts:[],
+        images:[]
     });
     save(); render();
 }
 
-function delSection(i){
-    data.sections.splice(i,1);
-    save(); render();
-}
-
-function addPub(){
-    data.pubs.push({
-        title:p_title.value,
-        auth:p_auth.value,
-        journal:p_journal.value,
-        year:p_year.value
+function addText(){
+    let i = text_index.value;
+    data.modules[i].texts.push({
+        en:text_en.value,
+        cn:text_cn.value
     });
     save(); render();
 }
 
-function delPub(i){
-    data.pubs.splice(i,1);
+function delText(i,ti){
+    data.modules[i].texts.splice(ti,1);
     save(); render();
 }
 
-function upload(){
-    let f = file.files[0];
-
-    if(!f){
-        alert("Please select a file");
-        return;
-    }
+function addImage(){
+    let i = img_index.value;
+    let file = img_file.files[0];
 
     let reader = new FileReader();
     reader.onload = function(){
-        data.files.push({
-            name:f.name,
-            url:reader.result
-        });
-        save();
-        render();
+        data.modules[i].images.push(reader.result);
+        save(); render();
     };
-    reader.readAsDataURL(f);
+    reader.readAsDataURL(file);
 }
 
-function delFile(i){
-    data.files.splice(i,1);
+function delImg(i,ii){
+    data.modules[i].images.splice(ii,1);
     save(); render();
 }
 
