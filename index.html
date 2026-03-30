@@ -14,14 +14,8 @@ window.MathJax = {
 
 <style>
 body { font-family: Arial; background:white; }
-
+.block { margin:20px; padding:15px; background:#f0f0f0; }
 button { margin:5px; }
-
-.block {
-margin:20px;
-padding:15px;
-background:#f0f0f0;
-}
 </style>
 
 </head>
@@ -38,8 +32,6 @@ background:#f0f0f0;
 
 <h2>Research</h2>
 <div id="research"></div>
-
-<hr>
 
 <h2>Publications</h2>
 <div id="papers"></div>
@@ -65,12 +57,18 @@ background:#f0f0f0;
 
 let lang="en";
 
-let data = {
+// ✅ 从 localStorage 读取
+let data = JSON.parse(localStorage.getItem("site")) || {
 title_en:"Research in Total Synthesis",
 title_cn:"全合成研究",
 research:[],
 papers:[]
 };
+
+// ✅ 保存函数
+function save(){
+localStorage.setItem("site", JSON.stringify(data));
+}
 
 function setLang(l){
 lang=l;
@@ -89,13 +87,14 @@ function addResearch(){
 let en=document.getElementById("text_en").value;
 let cn=document.getElementById("text_cn").value;
 
-if(en===""){
+if(en.trim()===""){
 alert("write something");
 return;
 }
 
 data.research.push({en:en, cn:cn});
 
+save(); // ⭐关键
 render();
 }
 
@@ -108,6 +107,7 @@ journal:p_journal.value,
 year:p_year.value
 });
 
+save(); // ⭐关键
 render();
 }
 
@@ -116,6 +116,7 @@ function render(){
 document.getElementById("title").innerText =
 (lang==="en"?data.title_en:data.title_cn);
 
+// Research
 let rHTML="";
 for(let i=0;i<data.research.length;i++){
 let r=data.research[i];
@@ -123,6 +124,7 @@ rHTML += "<div class='block'>" + (lang==="en"?r.en:r.cn) + "</div>";
 }
 document.getElementById("research").innerHTML=rHTML;
 
+// Papers
 let pHTML="";
 for(let i=0;i<data.papers.length;i++){
 let p=data.papers[i];
@@ -130,6 +132,7 @@ pHTML += "<div class='block'><b>"+p.title+"</b><br>"+p.auth+"<br>"+p.journal+" (
 }
 document.getElementById("papers").innerHTML=pHTML;
 
+// 公式渲染
 MathJax.typeset();
 }
 
