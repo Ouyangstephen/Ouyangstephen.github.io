@@ -2,243 +2,87 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Final CMS</title>
-
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<title>Research PDFs</title>
 
 <style>
-body { margin:0; font-family: Arial; }
-.container { display:flex; }
+body { margin:0; font-family:Arial; display:flex; }
 
-.sidebar {
-width:220px;
-background:#f5f5f5;
-height:100vh;
+.left {
+width:350px;
+border-right:1px solid #ddd;
 padding:20px;
-position:fixed;
 }
 
-.main {
-margin-left:240px;
-padding:40px;
+.file {
+padding:10px;
+border-bottom:1px solid #eee;
+cursor:pointer;
 }
 
-.block {
-margin:20px 0;
-padding:15px;
-background:#f0f0f0;
+.right {
+flex:1;
+padding:20px;
 }
 
-.delete { background:red; color:white; }
-.hidden { display:none; }
+iframe {
+width:100%;
+height:90vh;
+border:none;
+}
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<div class="left">
 
-<div class="sidebar">
-<h2>Site</h2>
-<div id="nav"></div>
+<h3>PDF Library</h3>
 
-<button onclick="setLang('en')">EN</button>
-<button onclick="setLang('cn')">中文</button>
-<button id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
-</div>
-
-<div class="main" id="main"></div>
+<div id="fileList"></div>
 
 </div>
 
-<div id="admin" class="hidden main">
-
-<h3>Add Module</h3>
-<input id="new_module">
-<button onclick="addModule()">Add</button>
-
-<div id="moduleList"></div>
-
-<h3>Editor EN</h3>
-<div id="editor_en" style="height:100px;"></div>
-
-<h3>Editor CN</h3>
-<div id="editor_cn" style="height:100px;"></div>
-
-<!-- 🔥 多文件上传 -->
-<input type="file" id="file_file" multiple>
-
-<button onclick="addContent()">Add Content</button>
-
+<div class="right">
+<iframe id="viewer"></iframe>
 </div>
 
 <script>
 
-let lang="en";
-let data = JSON.parse(localStorage.getItem("site")) || {modules:[]};
-let current=null, selected=null, isAdmin=false;
+const REPO = "Ouyangstephen/Ouyangstephen.github.io";
 
-let quillEN, quillCN;
+/* 加载文件 */
+async function loadFiles(){
 
-function save(){
-localStorage.setItem("site", JSON.stringify(data));
+let res = await fetch(`https://api.github.com/repos/${REPO}/contents/pdfs`);
+
+if(res.status !== 200){
+fileList.innerHTML = "No PDFs yet";
+return;
 }
 
-/* 后台快捷键 */
-document.addEventListener("keydown",function(e){
-if(e.ctrlKey && e.shiftKey && e.key==="V"){
-let pwd=prompt("Password");
-if(pwd==="1234567890qw"){
-isAdmin=true;
-admin.classList.remove("hidden");
-logoutBtn.style.display="inline";
-render();
-}
-}
-});
+let data = await res.json();
 
-function logout(){
-isAdmin=false;
-admin.classList.add("hidden");
-logoutBtn.style.display="none";
-render();
-}
+let html="";
 
-/* 模块 */
-function addModule(){
-let name=new_module.value;
-if(!name) return;
-data.modules.push({name:name,contents:[]});
-save(); render();
-}
-
-function selectModule(i){ selected=i; }
-
-/* 添加内容 */
-function addContent(){
-
-if(selected===null) return alert("select module");
-
-let content={
-en:quillEN.root.innerHTML,
-cn:quillCN.root.innerHTML,
-files:[]
-};
-
-let files=file_file.files;
-
-/* 🔥 处理多个文件 */
-if(files.length>0){
-
-let count=0;
-
-for(let i=0;i<files.length;i++){
-
-let reader=new FileReader();
-
-reader.onload=function(e){
-content.files.push({
-name:files[i].name,
-data:e.target.result
-});
-
-count++;
-
-if(count===files.length){
-push(content);
-}
-};
-
-reader.readAsDataURL(files[i]);
-}
-
-}else{
-push(content);
-}
-
-}
-
-function push(c){
-data.modules[selected].contents.push(c);
-save(); render();
-}
-
-/* 下载 */
-function downloadFile(base64,name){
-let a=document.createElement("a");
-a.href=base64;
-a.download=name;
-a.click();
-}
-
-/* 删除 */
-function deleteContent(m,i){
-data.modules[m].contents.splice(i,1);
-save(); render();
-}
-
-function deleteFile(m,c,f){
-data.modules[m].contents[c].files.splice(f,1);
-save(); render();
-}
-
-/* 渲染 */
-function render(){
-
-nav.innerHTML=data.modules.map((m,i)=>
-`<div onclick="openModule(${i})">${m.name}</div>`
-).join("");
-
-moduleList.innerHTML=data.modules.map((m,i)=>
-`<div onclick="selectModule(${i})">${m.name}</div>`
-).join("");
-
-if(current!==null){
-
-let m=data.modules[current];
-
-let html=`<h2>${m.name}</h2>`;
-
-m.contents.forEach((c,ci)=>{
-
-html+=`<div class="block">
-${lang==="en"?c.en:c.cn}
-`;
-
-/* 🔥 多文件显示 */
-if(c.files){
-c.files.forEach((f,fi)=>{
-html+=`
-<br>
-<button onclick="downloadFile('${f.data}','${f.name}')">Download ${f.name}</button>
-${isAdmin?`<button class="delete" onclick="deleteFile(${current},${ci},${fi})">X</button>`:""}
-`;
-});
-}
+data.forEach(f=>{
 
 html+=`
-${isAdmin?`<br><button class="delete" onclick="deleteContent(${current},${ci})">Delete Block</button>`:""}
-</div>`;
+<div class="file" onclick="openPDF('${f.download_url}')">
+📄 ${f.name}
+</div>
+`;
+
 });
 
-main.innerHTML=html;
+fileList.innerHTML = html;
 }
 
+/* 打开 */
+function openPDF(url){
+viewer.src = url;
 }
 
-function openModule(i){
-current=i;
-render();
-}
-
-function setLang(l){ lang=l; render(); }
-
-window.onload=function(){
-quillEN=new Quill('#editor_en',{theme:'snow'});
-quillCN=new Quill('#editor_cn',{theme:'snow'});
-render();
-};
+loadFiles();
 
 </script>
 
