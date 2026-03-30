@@ -2,325 +2,206 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Academic Website</title>
+<title>Cloud Academic Site</title>
 
-<!-- Quill -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
-<!-- MathJax -->
-<script>
-window.MathJax = { tex: { inlineMath: [['\\(','\\)'], ['$', '$']] } };
-</script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 <style>
-body { margin:0; font-family: Arial; background:white; }
-.container { display:flex; }
-
-.sidebar {
-width:220px;
-background:#f5f5f5;
-height:100vh;
-padding:20px;
-position:fixed;
-}
-
-.sidebar div { margin:10px 0; cursor:pointer; }
-
-.main {
-margin-left:240px;
-padding:40px;
-max-width:900px;
-}
-
-.block {
-margin:20px 0;
-padding:15px;
-background:#fafafa;
-border-left:4px solid #007acc;
-}
-
+body { margin:0; font-family: Arial; }
+.sidebar { width:220px; background:#f5f5f5; height:100vh; padding:20px; position:fixed; }
+.main { margin-left:240px; padding:40px; }
+.block { margin:20px 0; padding:15px; background:#fafafa; }
 .delete { background:red; color:white; }
-.logout { background:black; color:white; }
 .hidden { display:none; }
-
-.upload-box {
-border:2px dashed #ccc;
-padding:20px;
-text-align:center;
-cursor:pointer;
-margin-top:10px;
-}
-
 </style>
 
 </head>
 
 <body>
 
-<div class="container">
-
 <div class="sidebar">
-<h2>Research</h2>
-
+<h2>Site</h2>
 <div id="nav"></div>
-
-<hr>
-
-<button onclick="setLang('en')">EN</button>
-<button onclick="setLang('cn')">中文</button>
-
-<button id="logoutBtn" class="logout" style="display:none;" onclick="logout()">Logout</button>
+<button onclick="logout()" id="logoutBtn" style="display:none;">Logout</button>
 </div>
 
 <div class="main" id="main"></div>
 
-</div>
-
-<!-- ADMIN -->
 <div id="admin" class="hidden main">
 
-<h2>Admin Panel</h2>
-
-<input id="new_module" placeholder="New Module">
-<button onclick="addModule()">Add Module</button>
+<h3>Add Module</h3>
+<input id="new_module">
+<button onclick="addModule()">Add</button>
 
 <div id="moduleList"></div>
 
 <h3>Editor EN</h3>
-<div id="editor_en" style="height:120px;"></div>
+<div id="editor_en"></div>
 
 <h3>Editor CN</h3>
-<div id="editor_cn" style="height:120px;"></div>
+<div id="editor_cn"></div>
 
-<h3>Upload PDFs</h3>
-<div id="uploadBox" class="upload-box">
-Drag or Click
-<input type="file" id="file_input" multiple accept="application/pdf" hidden>
-</div>
-
-<ul id="fileList"></ul>
-
-<h3>Upload Image</h3>
-<input type="file" id="img_input">
+<input type="file" id="img">
+<input type="file" id="file">
 
 <button onclick="addContent()">Add Content</button>
 
 </div>
 
-<script>
+<!-- 🔥 Firebase -->
+<script type="module">
 
-let lang="en";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+
+/* 🔥 替换成你的 config */
+const firebaseConfig = {
+  apiKey: "AIzaSyDovU5fqi3Wl0fUIm8iAxYDpm1TrS1R5o4",
+  authDomain: "self-website-385d9.firebaseapp.com",
+  projectId: "self-website-385d9",
+  storageBucket: "self-website-385d9.firebasestorage.app",
+  messagingSenderId: "457658813599",
+  appId: "1:457658813599:web:4dfd7b39e44db7ca3826aa"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+/* 状态 */
 let current=null;
 let selected=null;
 let isAdmin=false;
+let modules=[];
 
-let uploadedFiles=[];
-let quillEN, quillCN;
-
-/* 数据 */
-let data = JSON.parse(localStorage.getItem("site")) || {modules:[]};
-
-function save(){
-localStorage.setItem("site", JSON.stringify(data));
-}
-
-function setLang(l){ lang=l; render(); }
-
-/* 后台快捷键 */
-document.addEventListener("keydown",function(e){
-if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==="v"){
+/* 快捷键 */
+document.addEventListener("keydown", async (e)=>{
+if(e.ctrlKey && e.shiftKey && e.key==="V"){
 let pwd=prompt("Password");
 if(pwd==="1234567890qw"){
 isAdmin=true;
 admin.classList.remove("hidden");
 logoutBtn.style.display="inline";
-render();
+loadModules();
 }
 }
 });
 
-function logout(){
+window.logout=function(){
 isAdmin=false;
 admin.classList.add("hidden");
 logoutBtn.style.display="none";
 render();
 }
 
-/* 模块 */
-function addModule(){
+/* 加载模块 */
+async function loadModules(){
+
+modules=[];
+
+let snapshot = await getDocs(collection(db,"modules"));
+
+snapshot.forEach(docu=>{
+modules.push({...docu.data(), id:docu.id});
+});
+
+render();
+}
+
+/* 添加模块 */
+window.addModule=async function(){
 let name=new_module.value;
-if(!name) return;
-data.modules.push({name:name,contents:[]});
-save(); render();
-}
-
-function selectModule(i){ selected=i; }
-
-function deleteModule(i){
-data.modules.splice(i,1);
-save(); render();
-}
-
-/* 文件上传 UI */
-uploadBox.onclick = ()=> file_input.click();
-
-file_input.addEventListener("change", e=>{
-handleFiles(e.target.files);
-});
-
-uploadBox.addEventListener("dragover", e=> e.preventDefault());
-
-uploadBox.addEventListener("drop", e=>{
-e.preventDefault();
-handleFiles(e.dataTransfer.files);
-});
-
-/* 文件处理 */
-function handleFiles(files){
-
-for(let file of files){
-
-let reader=new FileReader();
-
-reader.onload=function(e){
-
-uploadedFiles.push({
-name:file.name,
-data:e.target.result
-});
-
-renderFileList();
-
-};
-
-reader.readAsDataURL(file);
-}
-}
-
-function renderFileList(){
-
-fileList.innerHTML = uploadedFiles.map((f,i)=>`
-<li>
-📄 ${f.name}
-<button onclick="downloadFile('${f.data}','${f.name}')">Open</button>
-${isAdmin?`<button onclick="removeFile(${i})">X</button>`:""}
-</li>
-`).join("");
-}
-
-function removeFile(i){
-uploadedFiles.splice(i,1);
-renderFileList();
+await addDoc(collection(db,"modules"),{name:name});
+loadModules();
 }
 
 /* 添加内容 */
-function addContent(){
+window.addContent=async function(){
 
-if(selected===null) return alert("Select module");
+if(selected===null) return alert("select module");
 
-let content={
-en:quillEN.root.innerHTML,
-cn:quillCN.root.innerHTML,
-files:[...uploadedFiles]
-};
+let en=quillEN.root.innerHTML;
+let cn=quillCN.root.innerHTML;
 
-let img=img_input.files[0];
+let data={en:en,cn:cn,module:modules[selected].id};
 
-if(img){
-let reader=new FileReader();
-reader.onload=function(e){
-content.img=e.target.result;
-push(content);
-};
-reader.readAsDataURL(img);
-}else{
-push(content);
+/* 图片 */
+let imgFile=img.files[0];
+if(imgFile){
+let imgRef=ref(storage,"images/"+Date.now());
+await uploadBytes(imgRef,imgFile);
+data.img=await getDownloadURL(imgRef);
 }
 
-uploadedFiles=[];
-renderFileList();
+/* 文件 */
+let fileFile=file.files[0];
+if(fileFile){
+let fileRef=ref(storage,"files/"+Date.now());
+await uploadBytes(fileRef,fileFile);
+data.file=await getDownloadURL(fileRef);
+data.fileName=fileFile.name;
 }
 
-/* 保存 */
-function push(c){
-data.modules[selected].contents.push(c);
-save(); render();
-}
+await addDoc(collection(db,"contents"),data);
 
-/* 下载 */
-function downloadFile(base64,name){
-let a=document.createElement("a");
-a.href=base64;
-a.download=name;
-a.click();
+loadModules();
 }
 
 /* 删除 */
-function deleteContent(m,i){
-data.modules[m].contents.splice(i,1);
-save(); render();
-}
-
-function deleteFile(m,c,f){
-data.modules[m].contents[c].files.splice(f,1);
-save(); render();
+window.del=async function(id){
+await deleteDoc(doc(db,"contents",id));
+loadModules();
 }
 
 /* 渲染 */
-function render(){
+async function render(){
 
-nav.innerHTML = data.modules.map((m,i)=>
+nav.innerHTML=modules.map((m,i)=>
 `<div onclick="openModule(${i})">${m.name}</div>`
 ).join("");
 
-moduleList.innerHTML = data.modules.map((m,i)=>
-`<div onclick="selectModule(${i})">
-${m.name}
-${isAdmin?`<button onclick="deleteModule(${i})">X</button>`:""}
-</div>`
+moduleList.innerHTML=modules.map((m,i)=>
+`<div onclick="selected=${i}">${m.name}</div>`
 ).join("");
 
 if(current!==null){
 
-let m=data.modules[current];
+let html=`<h2>${modules[current].name}</h2>`;
 
-main.innerHTML = `
-<h1>${m.name}</h1>
-${m.contents.map((c,ci)=>`
+let snapshot=await getDocs(collection(db,"contents"));
+
+snapshot.forEach(docu=>{
+let c=docu.data();
+
+if(c.module===modules[current].id){
+
+html+=`
 <div class="block">
-${lang==="en"?c.en:c.cn}
-${c.img?`<img src="${c.img}" style="max-width:100%;">`:""}
-
-${c.files?c.files.map((f,fi)=>`
-<br>
-<button onclick="downloadFile('${f.data}','${f.name}')">${f.name}</button>
-${isAdmin?`<button onclick="deleteFile(${current},${ci},${fi})">X</button>`:""}
-`).join(""):""}
-
-${isAdmin?`<br><button class="delete" onclick="deleteContent(${current},${ci})">Delete</button>`:""}
-</div>
-`).join("")}
-`;
-
-MathJax.typeset();
+${c.en}
+${c.img?`<img src="${c.img}" width="200">`:""}
+${c.file?`<br><a href="${c.file}" target="_blank">${c.fileName}</a>`:""}
+${isAdmin?`<br><button onclick="del('${docu.id}')">Delete</button>`:""}
+</div>`;
 }
+});
 
+main.innerHTML=html;
+}
 }
 
 /* 打开模块 */
-function openModule(i){
+window.openModule=function(i){
 current=i;
 render();
 }
 
 /* 初始化 */
-window.onload=function(){
-quillEN=new Quill('#editor_en',{theme:'snow'});
-quillCN=new Quill('#editor_cn',{theme:'snow'});
-render();
-};
+let quillEN=new Quill('#editor_en',{theme:'snow'});
+let quillCN=new Quill('#editor_cn',{theme:'snow'});
+
+loadModules();
 
 </script>
 
