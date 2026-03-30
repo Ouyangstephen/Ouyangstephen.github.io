@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Final Cloud Site</title>
+<title>FINAL STABLE CLOUD SITE</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
@@ -12,34 +12,32 @@ body { margin:0; font-family: Arial; }
 .sidebar { width:220px; background:#f5f5f5; height:100vh; padding:20px; position:fixed; }
 .main { margin-left:240px; padding:40px; }
 .block { margin:20px 0; padding:15px; background:#fafafa; }
-.active { font-weight:bold; color:blue; }
+.active { color:blue; font-weight:bold; }
 </style>
-
 </head>
 
 <body>
 
 <div class="sidebar">
-<h2>Modules</h2>
+<h3>Modules</h3>
 <div id="nav"></div>
 <button id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
 </div>
 
-<div class="main" id="main"></div>
+<div class="main" id="main">Loading...</div>
 
 <div id="admin" style="display:none;" class="main">
 
-<h3>Add Module</h3>
-<input id="new_module">
-<button onclick="addModule()">Add</button>
+<input id="new_module" placeholder="Module name">
+<button onclick="addModule()">Add Module</button>
 
-<h3>Select Module</h3>
+<h4>Select Module</h4>
 <div id="moduleList"></div>
 
-<h3>Editor EN</h3>
+<h4>Editor EN</h4>
 <div id="editor_en"></div>
 
-<h3>Editor CN</h3>
+<h4>Editor CN</h4>
 <div id="editor_cn"></div>
 
 <input type="file" id="img">
@@ -69,138 +67,148 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-let modules=[];
-let contents=[];
+/* 状态 */
+let modules = [];
+let contents = [];
+let current = null;
+let selected = null;
+let isAdmin = false;
 
-let currentModule=null;
-let selectedModule=null;
-let isAdmin=false;
+/* 编辑器 */
+let quillEN = new Quill('#editor_en',{theme:'snow'});
+let quillCN = new Quill('#editor_cn',{theme:'snow'});
 
-let quillEN=new Quill('#editor_en',{theme:'snow'});
-let quillCN=new Quill('#editor_cn',{theme:'snow'});
-
-/* 🔥 快捷键 */
+/* 后台快捷键 */
 document.addEventListener("keydown", e=>{
-if(e.ctrlKey && e.shiftKey && e.key==="V"){
-let pwd=prompt("Password");
-if(pwd==="1234567890qw"){
-isAdmin=true;
-admin.style.display="block";
-logoutBtn.style.display="inline";
+if(e.ctrlKey && e.shiftKey && e.key === "V"){
+let pwd = prompt("Password");
+if(pwd === "1234567890qw"){
+isAdmin = true;
+admin.style.display = "block";
+logoutBtn.style.display = "inline";
 }
 }
 });
 
-window.logout=function(){
-isAdmin=false;
-admin.style.display="none";
-logoutBtn.style.display="none";
+window.logout = ()=>{
+isAdmin = false;
+admin.style.display = "none";
+logoutBtn.style.display = "none";
+};
+
+/* 🔥 加载 */
+async function load(){
+
+main.innerHTML = "Loading...";
+
+modules = [];
+contents = [];
+
+const mSnap = await getDocs(collection(db,"modules"));
+mSnap.forEach(d => modules.push({id:d.id,...d.data()}));
+
+const cSnap = await getDocs(collection(db,"contents"));
+cSnap.forEach(d => contents.push({id:d.id,...d.data()}));
+
+if(modules.length > 0){
+current = current === null ? 0 : current;
 }
-
-/* 🔥 加载所有数据 */
-async function loadAll(){
-
-modules=[];
-contents=[];
-
-let mSnap = await getDocs(collection(db,"modules"));
-mSnap.forEach(d=>modules.push({id:d.id,...d.data()}));
-
-let cSnap = await getDocs(collection(db,"contents"));
-cSnap.forEach(d=>contents.push({id:d.id,...d.data()}));
 
 render();
 }
 
-/* 🔥 渲染 */
+/* 渲染 */
 function render(){
 
 nav.innerHTML = modules.map((m,i)=>
-`<div class="${currentModule===i?'active':''}" onclick="openModule(${i})">${m.name}</div>`
+`<div class="${current===i?'active':''}" onclick="openModule(${i})">${m.name}</div>`
 ).join("");
 
 moduleList.innerHTML = modules.map((m,i)=>
-`<div onclick="selectedModule=${i}">${m.name}</div>`
+`<div onclick="selected=${i}" style="cursor:pointer;">${m.name}</div>`
 ).join("");
 
-if(currentModule!==null){
+if(current === null){
+main.innerHTML = "No modules";
+return;
+}
 
-let m = modules[currentModule];
+let m = modules[current];
 
 let html = `<h2>${m.name}</h2>`;
 
 contents.forEach(c=>{
-if(c.module===m.id){
+if(c.module === m.id){
 
-html+=`
+html += `
 <div class="block">
 ${c.en}
-${c.img?`<img src="${c.img}" width="200">`:""}
-${c.file?`<br><a href="${c.file}" target="_blank">${c.fileName}</a>`:""}
-${isAdmin?`<br><button onclick="del('${c.id}')">Delete</button>`:""}
-</div>`;
+
+${c.img ? `<br><img src="${c.img}" width="200">` : ""}
+
+${c.file ? `<br><a href="${c.file}" target="_blank">${c.fileName}</a>` : ""}
+
+${isAdmin ? `<br><button onclick="del('${c.id}')">Delete</button>` : ""}
+</div>
+`;
 }
 });
 
-main.innerHTML=html;
-}
+main.innerHTML = html;
 }
 
-/* 🔥 打开模块 */
-window.openModule=function(i){
-currentModule=i;
+/* 操作 */
+window.openModule = i=>{
+current = i;
 render();
-}
+};
 
-/* 🔥 添加模块 */
-window.addModule=async function(){
-let name=new_module.value;
-await addDoc(collection(db,"modules"),{name:name});
-loadAll();
-}
+window.addModule = async ()=>{
+let name = new_module.value;
+if(!name) return alert("Enter name");
 
-/* 🔥 添加内容 */
-window.addContent=async function(){
+await addDoc(collection(db,"modules"), {name});
+load();
+};
 
-if(selectedModule===null){
-alert("select module first");
+window.addContent = async ()=>{
+
+if(selected === null){
+alert("Select module first");
 return;
 }
 
-let data={
-en:quillEN.root.innerHTML,
-cn:quillCN.root.innerHTML,
-module:modules[selectedModule].id
+let data = {
+en: quillEN.root.innerHTML,
+cn: quillCN.root.innerHTML,
+module: modules[selected].id
 };
 
-/* 图片 */
 if(img.files[0]){
-let r=ref(storage,"img/"+Date.now());
+let r = ref(storage,"img/"+Date.now());
 await uploadBytes(r,img.files[0]);
-data.img=await getDownloadURL(r);
+data.img = await getDownloadURL(r);
 }
 
-/* 文件 */
 if(file.files[0]){
-let r=ref(storage,"file/"+Date.now());
+let r = ref(storage,"file/"+Date.now());
 await uploadBytes(r,file.files[0]);
-data.file=await getDownloadURL(r);
-data.fileName=file.files[0].name;
+data.file = await getDownloadURL(r);
+data.fileName = file.files[0].name;
 }
 
-await addDoc(collection(db,"contents"),data);
+await addDoc(collection(db,"contents"), data);
 
-loadAll();
-}
+load();
+};
 
-/* 🔥 删除 */
-window.del=async function(id){
+window.del = async id=>{
 await deleteDoc(doc(db,"contents",id));
-loadAll();
-}
+load();
+};
 
-/* 初始化 */
-loadAll();
+/* 启动 */
+load();
 
 </script>
 
