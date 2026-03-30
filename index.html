@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Stable Site</title>
+<title>Final CMS</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
@@ -33,7 +33,6 @@ background:#f0f0f0;
 .delete { background:red; color:white; }
 .hidden { display:none; }
 </style>
-
 </head>
 
 <body>
@@ -67,7 +66,8 @@ background:#f0f0f0;
 <h3>Editor CN</h3>
 <div id="editor_cn" style="height:100px;"></div>
 
-<input type="file" id="file_file">
+<!-- 🔥 多文件上传 -->
+<input type="file" id="file_file" multiple>
 
 <button onclick="addContent()">Add Content</button>
 
@@ -85,6 +85,7 @@ function save(){
 localStorage.setItem("site", JSON.stringify(data));
 }
 
+/* 后台快捷键 */
 document.addEventListener("keydown",function(e){
 if(e.ctrlKey && e.shiftKey && e.key==="V"){
 let pwd=prompt("Password");
@@ -104,6 +105,7 @@ logoutBtn.style.display="none";
 render();
 }
 
+/* 模块 */
 function addModule(){
 let name=new_module.value;
 if(!name) return;
@@ -113,30 +115,48 @@ save(); render();
 
 function selectModule(i){ selected=i; }
 
+/* 添加内容 */
 function addContent(){
 
 if(selected===null) return alert("select module");
 
 let content={
 en:quillEN.root.innerHTML,
-cn:quillCN.root.innerHTML
+cn:quillCN.root.innerHTML,
+files:[]
 };
 
-let file=file_file.files[0];
+let files=file_file.files;
 
-if(file){
+/* 🔥 处理多个文件 */
+if(files.length>0){
+
+let count=0;
+
+for(let i=0;i<files.length;i++){
+
 let reader=new FileReader();
-reader.onload=function(){
-content.file={
-name:file.name,
-data:reader.result
-};
+
+reader.onload=function(e){
+content.files.push({
+name:files[i].name,
+data:e.target.result
+});
+
+count++;
+
+if(count===files.length){
 push(content);
+}
 };
-reader.readAsDataURL(file);
+
+reader.readAsDataURL(files[i]);
+}
+
 }else{
 push(content);
 }
+
 }
 
 function push(c){
@@ -144,16 +164,26 @@ data.modules[selected].contents.push(c);
 save(); render();
 }
 
+/* 下载 */
 function downloadFile(base64,name){
-
 let a=document.createElement("a");
 a.href=base64;
 a.download=name;
-document.body.appendChild(a);
 a.click();
-document.body.removeChild(a);
 }
 
+/* 删除 */
+function deleteContent(m,i){
+data.modules[m].contents.splice(i,1);
+save(); render();
+}
+
+function deleteFile(m,c,f){
+data.modules[m].contents[c].files.splice(f,1);
+save(); render();
+}
+
+/* 渲染 */
 function render(){
 
 nav.innerHTML=data.modules.map((m,i)=>
@@ -165,34 +195,41 @@ moduleList.innerHTML=data.modules.map((m,i)=>
 ).join("");
 
 if(current!==null){
+
 let m=data.modules[current];
 
 let html=`<h2>${m.name}</h2>`;
 
-m.contents.forEach((c,i)=>{
+m.contents.forEach((c,ci)=>{
+
+html+=`<div class="block">
+${lang==="en"?c.en:c.cn}
+`;
+
+/* 🔥 多文件显示 */
+if(c.files){
+c.files.forEach((f,fi)=>{
+html+=`
+<br>
+<button onclick="downloadFile('${f.data}','${f.name}')">Download ${f.name}</button>
+${isAdmin?`<button class="delete" onclick="deleteFile(${current},${ci},${fi})">X</button>`:""}
+`;
+});
+}
 
 html+=`
-<div class="block">
-${lang==="en"?c.en:c.cn}
-
-${c.file?`<br><button onclick="downloadFile('${c.file.data}','${c.file.name}')">Download ${c.file.name}</button>`:""}
-
-${isAdmin?`<br><button class="delete" onclick="del(${current},${i})">Delete</button>`:""}
+${isAdmin?`<br><button class="delete" onclick="deleteContent(${current},${ci})">Delete Block</button>`:""}
 </div>`;
 });
 
 main.innerHTML=html;
 }
+
 }
 
 function openModule(i){
 current=i;
 render();
-}
-
-function del(m,i){
-data.modules[m].contents.splice(i,1);
-save(); render();
 }
 
 function setLang(l){ lang=l; render(); }
