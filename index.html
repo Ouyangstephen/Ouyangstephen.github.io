@@ -40,8 +40,6 @@ border-left:4px solid #007acc;
 }
 
 .delete { background:red; color:white; }
-.logout { background:black; color:white; }
-
 .hidden { display:none; }
 </style>
 
@@ -53,27 +51,23 @@ border-left:4px solid #007acc;
 
 <div class="sidebar">
 <h2 id="name"></h2>
-
 <div id="nav"></div>
 
 <hr>
-
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
-<button id="logoutBtn" class="logout" style="display:none;" onclick="logout()">Logout</button>
+<button id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
 </div>
 
 <div class="main" id="main"></div>
 
 </div>
 
-<!-- ADMIN -->
 <div id="admin" class="hidden main">
 
 <h2>Admin</h2>
 
-<h3>Modules</h3>
-<input id="new_module" placeholder="New Module Name">
+<input id="new_module" placeholder="Module name">
 <button onclick="addModule()">Add Module</button>
 
 <div id="moduleList"></div>
@@ -102,9 +96,8 @@ let quillEN, quillCN;
 
 function loadData(){
 let raw=localStorage.getItem("site");
-if(!raw){
-return {name:"Your Name",modules:[]};
-}
+if(!raw) return {name:"Your Name",modules:[]};
+
 try{
 let d=JSON.parse(raw);
 if(!d.modules) d.modules=[];
@@ -121,18 +114,15 @@ function save(){
 localStorage.setItem("site",JSON.stringify(data));
 }
 
-function setLang(l){
-lang=l;
-render();
-}
+function setLang(l){ lang=l; render(); }
 
 document.addEventListener("keydown",function(e){
 if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==="v"){
 let pwd=prompt("Password:");
 if(pwd==="1234567890qw"){
 isAdmin=true;
-document.getElementById("admin").classList.remove("hidden");
-document.getElementById("logoutBtn").style.display="inline-block";
+admin.classList.remove("hidden");
+logoutBtn.style.display="inline-block";
 render();
 }
 }
@@ -140,39 +130,27 @@ render();
 
 function logout(){
 isAdmin=false;
-document.getElementById("admin").classList.add("hidden");
-document.getElementById("logoutBtn").style.display="none";
+admin.classList.add("hidden");
+logoutBtn.style.display="none";
 render();
 }
 
 /* 模块 */
 function addModule(){
+let name=new_module.value;
+if(!name) return alert("Enter name");
 
-let name=document.getElementById("new_module").value;
-
-if(!name){
-alert("Enter module name");
-return;
-}
-
-data.modules.push({
-name:name,
-contents:[]
-});
-
-save();
-render();
+data.modules.push({name:name,contents:[]});
+save(); render();
 }
 
 function deleteModule(i){
 data.modules.splice(i,1);
-save();
-render();
+save(); render();
 }
 
 function selectModule(i){
 selectedModule=i;
-renderAdmin();
 }
 
 /* 内容 */
@@ -183,46 +161,34 @@ alert("Select module first");
 return;
 }
 
-let en=quillEN.root.innerHTML;
-let cn=quillCN.root.innerHTML;
+let content={
+en:quillEN.root.innerHTML,
+cn:quillCN.root.innerHTML
+};
 
-let imgFile=img_file.files[0];
-let fileFile=file_file.files[0];
+let file=file_file.files[0];
 
-let content={en:en,cn:cn};
+if(file){
+content.fileName=file.name;
+content.fileURL=URL.createObjectURL(file);  // 🔥关键修复
+}
 
-if(imgFile){
+let img=img_file.files[0];
+
+if(img){
 let reader=new FileReader();
 reader.onload=function(){
 content.img=reader.result;
-addFile(content,fileFile);
+push(content);
 };
-reader.readAsDataURL(imgFile);
+reader.readAsDataURL(img);
 }else{
-addFile(content,fileFile);
+push(content);
 }
 
 }
 
-function addFile(content,fileFile){
-
-if(fileFile){
-let reader=new FileReader();
-reader.onload=function(){
-content.file={
-name:fileFile.name,
-data:reader.result
-};
-pushContent(content);
-};
-reader.readAsDataURL(fileFile);
-}else{
-pushContent(content);
-}
-
-}
-
-function pushContent(content){
+function push(content){
 data.modules[selectedModule].contents.push(content);
 save();
 render();
@@ -230,26 +196,23 @@ render();
 
 function deleteContent(m,i){
 data.modules[m].contents.splice(i,1);
-save();
-render();
+save(); render();
 }
 
 /* 渲染 */
 function render(){
 
-document.getElementById("name").innerText=data.name;
+name.innerText=data.name;
 
-let navHTML="";
-data.modules.forEach((m,i)=>{
-navHTML+=`<div onclick="openModule(${i})">${m.name}</div>`;
-});
-document.getElementById("nav").innerHTML=navHTML;
+nav.innerHTML=data.modules.map((m,i)=>
+`<div onclick="openModule(${i})">${m.name}</div>`
+).join("");
 
-if(current!==null){
-renderModule(current);
-}
+if(current!==null) renderModule(current);
 
-renderAdmin();
+moduleList.innerHTML=data.modules.map((m,i)=>
+`<div onclick="selectModule(${i})">${m.name} ${isAdmin?`<button onclick="deleteModule(${i})">X</button>`:""}</div>`
+).join("");
 }
 
 function openModule(i){
@@ -269,29 +232,14 @@ html+=`
 <div class="block">
 ${lang==="en"?c.en:c.cn}
 ${c.img?`<img src="${c.img}">`:""}
-${c.file?`<br><a href="${c.file.data}" download="${c.file.name}">${c.file.name}</a>`:""}
+${c.fileURL?`<br><a href="${c.fileURL}" download="${c.fileName}">Download ${c.fileName}</a>`:""}
 ${isAdmin?`<br><button class="delete" onclick="deleteContent(${i},${ci})">Delete</button>`:""}
 </div>`;
 });
 
-document.getElementById("main").innerHTML=html;
+main.innerHTML=html;
 
 MathJax.typeset();
-}
-
-function renderAdmin(){
-
-let html="";
-
-data.modules.forEach((m,i)=>{
-html+=`
-<div onclick="selectModule(${i})">
-${m.name}
-${isAdmin?`<button onclick="deleteModule(${i})">X</button>`:""}
-</div>`;
-});
-
-document.getElementById("moduleList").innerHTML=html;
 }
 
 window.onload=function(){
