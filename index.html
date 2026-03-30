@@ -2,18 +2,13 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Academic Website</title>
+<title>Ultimate Stable Site</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
-<script>
-window.MathJax = { tex: { inlineMath: [['\\(','\\)'], ['$', '$']] } };
-</script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
 <style>
-body { margin:0; font-family: Arial; background:white; }
+body { margin:0; font-family: Arial; }
 .container { display:flex; }
 
 .sidebar {
@@ -24,19 +19,15 @@ padding:20px;
 position:fixed;
 }
 
-.sidebar div { margin:10px 0; cursor:pointer; }
-
 .main {
 margin-left:240px;
 padding:40px;
-max-width:900px;
 }
 
 .block {
 margin:20px 0;
 padding:15px;
-background:#fafafa;
-border-left:4px solid #007acc;
+background:#f0f0f0;
 }
 
 .delete { background:red; color:white; }
@@ -50,10 +41,9 @@ border-left:4px solid #007acc;
 <div class="container">
 
 <div class="sidebar">
-<h2 id="name"></h2>
+<h2>Site</h2>
 <div id="nav"></div>
 
-<hr>
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
 <button id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
@@ -65,20 +55,18 @@ border-left:4px solid #007acc;
 
 <div id="admin" class="hidden main">
 
-<h2>Admin</h2>
-
-<input id="new_module" placeholder="Module name">
-<button onclick="addModule()">Add Module</button>
+<h3>Add Module</h3>
+<input id="new_module">
+<button onclick="addModule()">Add</button>
 
 <div id="moduleList"></div>
 
 <h3>Editor EN</h3>
-<div id="editor_en" style="height:120px;"></div>
+<div id="editor_en" style="height:100px;"></div>
 
 <h3>Editor CN</h3>
-<div id="editor_cn" style="height:120px;"></div>
+<div id="editor_cn" style="height:100px;"></div>
 
-<input type="file" id="img_file">
 <input type="file" id="file_file">
 
 <button onclick="addContent()">Add Content</button>
@@ -88,41 +76,22 @@ border-left:4px solid #007acc;
 <script>
 
 let lang="en";
-let current=null;
-let selectedModule=null;
-let isAdmin=false;
+let data = JSON.parse(localStorage.getItem("site")) || {modules:[]};
+let current=null, selected=null, isAdmin=false;
 
 let quillEN, quillCN;
 
-function loadData(){
-let raw=localStorage.getItem("site");
-if(!raw) return {name:"Your Name",modules:[]};
-
-try{
-let d=JSON.parse(raw);
-if(!d.modules) d.modules=[];
-return d;
-}catch{
-localStorage.clear();
-return {name:"Your Name",modules:[]};
-}
-}
-
-let data=loadData();
-
 function save(){
-localStorage.setItem("site",JSON.stringify(data));
+localStorage.setItem("site", JSON.stringify(data));
 }
-
-function setLang(l){ lang=l; render(); }
 
 document.addEventListener("keydown",function(e){
-if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==="v"){
-let pwd=prompt("Password:");
+if(e.ctrlKey && e.shiftKey && e.key==="V"){
+let pwd=prompt("Password");
 if(pwd==="1234567890qw"){
 isAdmin=true;
 admin.classList.remove("hidden");
-logoutBtn.style.display="inline-block";
+logoutBtn.style.display="inline";
 render();
 }
 }
@@ -135,31 +104,18 @@ logoutBtn.style.display="none";
 render();
 }
 
-/* 模块 */
 function addModule(){
 let name=new_module.value;
-if(!name) return alert("Enter name");
-
+if(!name) return;
 data.modules.push({name:name,contents:[]});
 save(); render();
 }
 
-function deleteModule(i){
-data.modules.splice(i,1);
-save(); render();
-}
+function selectModule(i){ selected=i; }
 
-function selectModule(i){
-selectedModule=i;
-}
-
-/* 内容 */
 function addContent(){
 
-if(selectedModule===null){
-alert("Select module first");
-return;
-}
+if(selected===null) return alert("select module");
 
 let content={
 en:quillEN.root.innerHTML,
@@ -169,78 +125,77 @@ cn:quillCN.root.innerHTML
 let file=file_file.files[0];
 
 if(file){
-content.fileName=file.name;
-content.fileURL=URL.createObjectURL(file);  // 🔥关键修复
-}
-
-let img=img_file.files[0];
-
-if(img){
 let reader=new FileReader();
 reader.onload=function(){
-content.img=reader.result;
+content.file={
+name:file.name,
+data:reader.result
+};
 push(content);
 };
-reader.readAsDataURL(img);
+reader.readAsDataURL(file);
 }else{
 push(content);
 }
-
 }
 
-function push(content){
-data.modules[selectedModule].contents.push(content);
-save();
-render();
-}
-
-function deleteContent(m,i){
-data.modules[m].contents.splice(i,1);
+function push(c){
+data.modules[selected].contents.push(c);
 save(); render();
 }
 
-/* 渲染 */
-function render(){
+function downloadFile(base64,name){
 
-name.innerText=data.name;
+let a=document.createElement("a");
+a.href=base64;
+a.download=name;
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+}
+
+function render(){
 
 nav.innerHTML=data.modules.map((m,i)=>
 `<div onclick="openModule(${i})">${m.name}</div>`
 ).join("");
 
-if(current!==null) renderModule(current);
-
 moduleList.innerHTML=data.modules.map((m,i)=>
-`<div onclick="selectModule(${i})">${m.name} ${isAdmin?`<button onclick="deleteModule(${i})">X</button>`:""}</div>`
+`<div onclick="selectModule(${i})">${m.name}</div>`
 ).join("");
-}
 
-function openModule(i){
-current=i;
-renderModule(i);
-}
+if(current!==null){
+let m=data.modules[current];
 
-function renderModule(i){
+let html=`<h2>${m.name}</h2>`;
 
-let m=data.modules[i];
-
-let html=`<h1>${m.name}</h1>`;
-
-m.contents.forEach((c,ci)=>{
+m.contents.forEach((c,i)=>{
 
 html+=`
 <div class="block">
 ${lang==="en"?c.en:c.cn}
-${c.img?`<img src="${c.img}">`:""}
-${c.fileURL?`<br><a href="${c.fileURL}" download="${c.fileName}">Download ${c.fileName}</a>`:""}
-${isAdmin?`<br><button class="delete" onclick="deleteContent(${i},${ci})">Delete</button>`:""}
+
+${c.file?`<br><button onclick="downloadFile('${c.file.data}','${c.file.name}')">Download ${c.file.name}</button>`:""}
+
+${isAdmin?`<br><button class="delete" onclick="del(${current},${i})">Delete</button>`:""}
 </div>`;
 });
 
 main.innerHTML=html;
-
-MathJax.typeset();
 }
+}
+
+function openModule(i){
+current=i;
+render();
+}
+
+function del(m,i){
+data.modules[m].contents.splice(i,1);
+save(); render();
+}
+
+function setLang(l){ lang=l; render(); }
 
 window.onload=function(){
 quillEN=new Quill('#editor_en',{theme:'snow'});
