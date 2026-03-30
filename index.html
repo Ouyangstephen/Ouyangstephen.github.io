@@ -4,16 +4,18 @@
 <meta charset="UTF-8">
 <title>Academic Website</title>
 
+<!-- Quill -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
+<!-- MathJax -->
 <script>
 window.MathJax = { tex: { inlineMath: [['\\(','\\)'], ['$', '$']] } };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 <style>
-body { margin:0; font-family: Arial; }
+body { margin:0; font-family: Arial; background:white; }
 .container { display:flex; }
 
 .sidebar {
@@ -24,6 +26,8 @@ padding:20px;
 position:fixed;
 }
 
+.sidebar div { margin:10px 0; cursor:pointer; }
+
 .main {
 margin-left:240px;
 padding:40px;
@@ -33,12 +37,24 @@ max-width:900px;
 .block {
 margin:20px 0;
 padding:15px;
-background:#f0f0f0;
+background:#fafafa;
+border-left:4px solid #007acc;
 }
 
 .delete { background:red; color:white; }
+.logout { background:black; color:white; }
 .hidden { display:none; }
+
+.upload-box {
+border:2px dashed #ccc;
+padding:20px;
+text-align:center;
+cursor:pointer;
+margin-top:10px;
+}
+
 </style>
+
 </head>
 
 <body>
@@ -47,11 +63,15 @@ background:#f0f0f0;
 
 <div class="sidebar">
 <h2>Research</h2>
+
 <div id="nav"></div>
+
+<hr>
 
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
-<button id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
+
+<button id="logoutBtn" class="logout" style="display:none;" onclick="logout()">Logout</button>
 </div>
 
 <div class="main" id="main"></div>
@@ -61,9 +81,10 @@ background:#f0f0f0;
 <!-- ADMIN -->
 <div id="admin" class="hidden main">
 
-<h3>Add Module</h3>
-<input id="new_module">
-<button onclick="addModule()">Add</button>
+<h2>Admin Panel</h2>
+
+<input id="new_module" placeholder="New Module">
+<button onclick="addModule()">Add Module</button>
 
 <div id="moduleList"></div>
 
@@ -73,9 +94,16 @@ background:#f0f0f0;
 <h3>Editor CN</h3>
 <div id="editor_cn" style="height:120px;"></div>
 
-<!-- 🔥 GitHub 文件输入 -->
-<h3>Add PDF (just type file name)</h3>
-<input id="pdf_name" placeholder="example.pdf">
+<h3>Upload PDFs</h3>
+<div id="uploadBox" class="upload-box">
+Drag or Click
+<input type="file" id="file_input" multiple accept="application/pdf" hidden>
+</div>
+
+<ul id="fileList"></ul>
+
+<h3>Upload Image</h3>
+<input type="file" id="img_input">
 
 <button onclick="addContent()">Add Content</button>
 
@@ -83,28 +111,26 @@ background:#f0f0f0;
 
 <script>
 
-/* 🔥 修改这里（只改一次） */
-const GITHUB_USER = "Ouyangstephen";
-const REPO_NAME = "Ouyangstephen.github.io
-";
-
-function getPDFUrl(name){
-return `https://${GITHUB_USER}.github.io/${REPO_NAME}/files/${name}`;
-}
-
 let lang="en";
-let data = JSON.parse(localStorage.getItem("site")) || {modules:[]};
-let current=null, selected=null, isAdmin=false;
+let current=null;
+let selected=null;
+let isAdmin=false;
 
+let uploadedFiles=[];
 let quillEN, quillCN;
+
+/* 数据 */
+let data = JSON.parse(localStorage.getItem("site")) || {modules:[]};
 
 function save(){
 localStorage.setItem("site", JSON.stringify(data));
 }
 
-/* 后台 */
+function setLang(l){ lang=l; render(); }
+
+/* 后台快捷键 */
 document.addEventListener("keydown",function(e){
-if(e.ctrlKey && e.shiftKey && e.key==="V"){
+if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==="v"){
 let pwd=prompt("Password");
 if(pwd==="1234567890qw"){
 isAdmin=true;
@@ -132,26 +158,114 @@ save(); render();
 
 function selectModule(i){ selected=i; }
 
+function deleteModule(i){
+data.modules.splice(i,1);
+save(); render();
+}
+
+/* 文件上传 UI */
+uploadBox.onclick = ()=> file_input.click();
+
+file_input.addEventListener("change", e=>{
+handleFiles(e.target.files);
+});
+
+uploadBox.addEventListener("dragover", e=> e.preventDefault());
+
+uploadBox.addEventListener("drop", e=>{
+e.preventDefault();
+handleFiles(e.dataTransfer.files);
+});
+
+/* 文件处理 */
+function handleFiles(files){
+
+for(let file of files){
+
+let reader=new FileReader();
+
+reader.onload=function(e){
+
+uploadedFiles.push({
+name:file.name,
+data:e.target.result
+});
+
+renderFileList();
+
+};
+
+reader.readAsDataURL(file);
+}
+}
+
+function renderFileList(){
+
+fileList.innerHTML = uploadedFiles.map((f,i)=>`
+<li>
+📄 ${f.name}
+<button onclick="downloadFile('${f.data}','${f.name}')">Open</button>
+${isAdmin?`<button onclick="removeFile(${i})">X</button>`:""}
+</li>
+`).join("");
+}
+
+function removeFile(i){
+uploadedFiles.splice(i,1);
+renderFileList();
+}
+
 /* 添加内容 */
 function addContent(){
 
 if(selected===null) return alert("Select module");
 
-let pdfName = document.getElementById("pdf_name").value;
-
 let content={
 en:quillEN.root.innerHTML,
 cn:quillCN.root.innerHTML,
-pdf: pdfName ? {
-name: pdfName,
-url: getPDFUrl(pdfName)
-} : null
+files:[...uploadedFiles]
 };
 
-data.modules[selected].contents.push(content);
+let img=img_input.files[0];
 
-save();
-render();
+if(img){
+let reader=new FileReader();
+reader.onload=function(e){
+content.img=e.target.result;
+push(content);
+};
+reader.readAsDataURL(img);
+}else{
+push(content);
+}
+
+uploadedFiles=[];
+renderFileList();
+}
+
+/* 保存 */
+function push(c){
+data.modules[selected].contents.push(c);
+save(); render();
+}
+
+/* 下载 */
+function downloadFile(base64,name){
+let a=document.createElement("a");
+a.href=base64;
+a.download=name;
+a.click();
+}
+
+/* 删除 */
+function deleteContent(m,i){
+data.modules[m].contents.splice(i,1);
+save(); render();
+}
+
+function deleteFile(m,c,f){
+data.modules[m].contents[c].files.splice(f,1);
+save(); render();
 }
 
 /* 渲染 */
@@ -162,7 +276,10 @@ nav.innerHTML = data.modules.map((m,i)=>
 ).join("");
 
 moduleList.innerHTML = data.modules.map((m,i)=>
-`<div onclick="selectModule(${i})">${m.name}</div>`
+`<div onclick="selectModule(${i})">
+${m.name}
+${isAdmin?`<button onclick="deleteModule(${i})">X</button>`:""}
+</div>`
 ).join("");
 
 if(current!==null){
@@ -171,32 +288,34 @@ let m=data.modules[current];
 
 main.innerHTML = `
 <h1>${m.name}</h1>
-${m.contents.map((c)=>`
+${m.contents.map((c,ci)=>`
 <div class="block">
 ${lang==="en"?c.en:c.cn}
+${c.img?`<img src="${c.img}" style="max-width:100%;">`:""}
 
-${c.pdf ? `
+${c.files?c.files.map((f,fi)=>`
 <br>
-<a href="${c.pdf.url}" target="_blank">
-📄 ${c.pdf.name}
-</a>
-` : ""}
+<button onclick="downloadFile('${f.data}','${f.name}')">${f.name}</button>
+${isAdmin?`<button onclick="deleteFile(${current},${ci},${fi})">X</button>`:""}
+`).join(""):""}
 
+${isAdmin?`<br><button class="delete" onclick="deleteContent(${current},${ci})">Delete</button>`:""}
 </div>
 `).join("")}
 `;
 
 MathJax.typeset();
 }
+
 }
 
+/* 打开模块 */
 function openModule(i){
 current=i;
 render();
 }
 
-function setLang(l){ lang=l; render(); }
-
+/* 初始化 */
 window.onload=function(){
 quillEN=new Quill('#editor_en',{theme:'snow'});
 quillCN=new Quill('#editor_cn',{theme:'snow'});
