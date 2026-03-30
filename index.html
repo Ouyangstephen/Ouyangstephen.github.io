@@ -2,242 +2,206 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Research Website</title>
+<title>Academic Website</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
+<script>
+window.MathJax = { tex: { inlineMath: [['\\(','\\)'], ['$', '$']] } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
 <style>
-body { margin:0; font-family:Arial; display:flex; }
+body { margin:0; font-family: Arial; }
+.container { display:flex; }
 
-/* 左侧 */
 .sidebar {
-width:260px;
-background:#f8f8f8;
-padding:20px;
+width:220px;
+background:#f5f5f5;
 height:100vh;
-overflow:auto;
+padding:20px;
+position:fixed;
 }
 
-.module {
-padding:10px;
-cursor:pointer;
-border-bottom:1px solid #eee;
-}
-
-.module:hover { background:#eee; }
-
-/* 主区域 */
 .main {
-flex:1;
-padding:20px;
+margin-left:240px;
+padding:40px;
+max-width:900px;
 }
 
-/* 上传 */
-.upload {
-border:2px dashed #ccc;
-padding:20px;
-text-align:center;
-cursor:pointer;
-margin-bottom:20px;
+.block {
+margin:20px 0;
+padding:15px;
+background:#f0f0f0;
 }
 
-/* 文件 */
-.file {
-display:flex;
-justify-content:space-between;
-padding:8px;
-border-bottom:1px solid #eee;
-}
-
-iframe {
-width:100%;
-height:80vh;
-border:none;
-}
+.delete { background:red; color:white; }
+.hidden { display:none; }
 </style>
 </head>
 
 <body>
 
+<div class="container">
+
 <div class="sidebar">
+<h2>Research</h2>
+<div id="nav"></div>
 
-<h3>Modules</h3>
-<div id="modules"></div>
+<button onclick="setLang('en')">EN</button>
+<button onclick="setLang('cn')">中文</button>
+<button id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
+</div>
 
-<hr>
+<div class="main" id="main"></div>
 
-<input id="newModule" placeholder="New Module">
+</div>
+
+<!-- ADMIN -->
+<div id="admin" class="hidden main">
+
+<h3>Add Module</h3>
+<input id="new_module">
 <button onclick="addModule()">Add</button>
 
-<hr>
+<div id="moduleList"></div>
 
-<div class="upload" onclick="fileInput.click()">
-Upload PDF
-<input type="file" id="fileInput" multiple hidden>
-</div>
+<h3>Editor EN</h3>
+<div id="editor_en" style="height:120px;"></div>
 
-<div id="fileList">Loading...</div>
+<h3>Editor CN</h3>
+<div id="editor_cn" style="height:120px;"></div>
 
-</div>
+<!-- 🔥 GitHub 文件输入 -->
+<h3>Add PDF (just type file name)</h3>
+<input id="pdf_name" placeholder="example.pdf">
 
-<div class="main">
-
-<h2 id="title"></h2>
-
-<div id="editor_en"></div>
-<div id="editor_cn"></div>
-
-<hr>
-
-<iframe id="viewer"></iframe>
+<button onclick="addContent()">Add Content</button>
 
 </div>
 
 <script>
 
-/* 🔥 修改这里 */
-const GITHUB_TOKEN = "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";
-const REPO = "Ouyangstephen/Ouyangstephen.github.io";
-const BRANCH = "main";
+/* 🔥 修改这里（只改一次） */
+const GITHUB_USER = "Ouyangstephen";
+const REPO_NAME = "Ouyangstephen.github.io
+";
+
+function getPDFUrl(name){
+return `https://${GITHUB_USER}.github.io/${REPO_NAME}/files/${name}`;
+}
+
+let lang="en";
+let data = JSON.parse(localStorage.getItem("site")) || {modules:[]};
+let current=null, selected=null, isAdmin=false;
+
+let quillEN, quillCN;
+
+function save(){
+localStorage.setItem("site", JSON.stringify(data));
+}
+
+/* 后台 */
+document.addEventListener("keydown",function(e){
+if(e.ctrlKey && e.shiftKey && e.key==="V"){
+let pwd=prompt("Password");
+if(pwd==="1234567890qw"){
+isAdmin=true;
+admin.classList.remove("hidden");
+logoutBtn.style.display="inline";
+render();
+}
+}
+});
+
+function logout(){
+isAdmin=false;
+admin.classList.add("hidden");
+logoutBtn.style.display="none";
+render();
+}
 
 /* 模块 */
-let modules = JSON.parse(localStorage.getItem("modules")) || [];
-let current = null;
-
-function saveModules(){
-localStorage.setItem("modules", JSON.stringify(modules));
-}
-
 function addModule(){
-let name = newModule.value;
+let name=new_module.value;
 if(!name) return;
-
-modules.push(name);
-saveModules();
-renderModules();
+data.modules.push({name:name,contents:[]});
+save(); render();
 }
 
-function renderModules(){
-modulesDiv.innerHTML = modules.map((m,i)=>
-`<div class="module" onclick="selectModule(${i})">${m}</div>`
+function selectModule(i){ selected=i; }
+
+/* 添加内容 */
+function addContent(){
+
+if(selected===null) return alert("Select module");
+
+let pdfName = document.getElementById("pdf_name").value;
+
+let content={
+en:quillEN.root.innerHTML,
+cn:quillCN.root.innerHTML,
+pdf: pdfName ? {
+name: pdfName,
+url: getPDFUrl(pdfName)
+} : null
+};
+
+data.modules[selected].contents.push(content);
+
+save();
+render();
+}
+
+/* 渲染 */
+function render(){
+
+nav.innerHTML = data.modules.map((m,i)=>
+`<div onclick="openModule(${i})">${m.name}</div>`
 ).join("");
-}
 
-function selectModule(i){
-current = modules[i];
-title.innerText = current;
-}
+moduleList.innerHTML = data.modules.map((m,i)=>
+`<div onclick="selectModule(${i})">${m.name}</div>`
+).join("");
 
-/* 编辑器 */
-let quillEN = new Quill('#editor_en',{theme:'snow'});
-let quillCN = new Quill('#editor_cn',{theme:'snow'});
+if(current!==null){
 
-/* 上传 */
-fileInput.addEventListener("change", e=>{
-uploadFiles(e.target.files);
-});
+let m=data.modules[current];
 
-async function uploadFiles(files){
+main.innerHTML = `
+<h1>${m.name}</h1>
+${m.contents.map((c)=>`
+<div class="block">
+${lang==="en"?c.en:c.cn}
 
-for(let file of files){
+${c.pdf ? `
+<br>
+<a href="${c.pdf.url}" target="_blank">
+📄 ${c.pdf.name}
+</a>
+` : ""}
 
-let base64 = await toBase64(file);
-
-let path = "pdfs/" + Date.now() + "_" + file.name;
-
-await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`,{
-method:"PUT",
-headers:{
-Authorization:"token " + GITHUB_TOKEN,
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-message:"upload pdf",
-content:base64.split(",")[1],
-branch:BRANCH
-})
-});
-
-}
-
-loadFiles();
-}
-
-/* base64 */
-function toBase64(file){
-return new Promise(res=>{
-let reader=new FileReader();
-reader.onload=()=>res(reader.result);
-reader.readAsDataURL(file);
-});
-}
-
-/* 加载文件 */
-async function loadFiles(){
-
-try{
-
-let res = await fetch(`https://api.github.com/repos/${REPO}/contents/pdfs`);
-
-if(res.status !== 200){
-fileList.innerHTML = "❌ No pdfs folder or no files";
-return;
-}
-
-let data = await res.json();
-
-if(data.length === 0){
-fileList.innerHTML = "No files yet";
-return;
-}
-
-let html="";
-
-data.forEach(f=>{
-html += `
-<div class="file">
-<span onclick="openPDF('${f.download_url}')">📄 ${f.name}</span>
-<button onclick="deleteFile('${f.path}','${f.sha}')">X</button>
 </div>
+`).join("")}
 `;
-});
 
-fileList.innerHTML = html;
-
-}catch(e){
-fileList.innerHTML = "❌ Error loading files";
+MathJax.typeset();
+}
 }
 
+function openModule(i){
+current=i;
+render();
 }
 
-/* 打开 */
-function openPDF(url){
-viewer.src = url;
-}
+function setLang(l){ lang=l; render(); }
 
-/* 删除 */
-async function deleteFile(path,sha){
-
-await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`,{
-method:"DELETE",
-headers:{
-Authorization:"token " + GITHUB_TOKEN,
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-message:"delete",
-sha:sha,
-branch:BRANCH
-})
-});
-
-loadFiles();
-}
-
-/* 初始化 */
-renderModules();
-loadFiles();
+window.onload=function(){
+quillEN=new Quill('#editor_en',{theme:'snow'});
+quillCN=new Quill('#editor_cn',{theme:'snow'});
+render();
+};
 
 </script>
 
