@@ -2,91 +2,96 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Research PDF System</title>
+<title>Research Website</title>
+
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
 <style>
-body {
-margin:0;
-font-family:Arial;
-display:flex;
-}
+body { margin:0; font-family:Arial; display:flex; }
 
 /* 左侧 */
-.left {
-width:360px;
-border-right:1px solid #ddd;
+.sidebar {
+width:260px;
+background:#f8f8f8;
 padding:20px;
-background:#fafafa;
+height:100vh;
+overflow:auto;
 }
 
-/* 上传区 */
-.upload-box {
-border:2px dashed #ccc;
-padding:30px;
-text-align:center;
+.module {
+padding:10px;
 cursor:pointer;
-border-radius:10px;
-margin-bottom:20px;
-transition:0.2s;
-}
-
-.upload-box:hover {
-border-color:#007bff;
-}
-
-/* 文件 */
-.file {
-padding:12px;
 border-bottom:1px solid #eee;
-display:flex;
-justify-content:space-between;
-align-items:center;
 }
 
-.file span {
-cursor:pointer;
-}
+.module:hover { background:#eee; }
 
-.delete {
-color:red;
-cursor:pointer;
-}
-
-/* 右侧 */
-.right {
+/* 主区域 */
+.main {
 flex:1;
 padding:20px;
 }
 
-/* PDF预览 */
+/* 上传 */
+.upload {
+border:2px dashed #ccc;
+padding:20px;
+text-align:center;
+cursor:pointer;
+margin-bottom:20px;
+}
+
+/* 文件 */
+.file {
+display:flex;
+justify-content:space-between;
+padding:8px;
+border-bottom:1px solid #eee;
+}
+
 iframe {
 width:100%;
-height:92vh;
+height:80vh;
 border:none;
-border-radius:10px;
-box-shadow:0 0 10px rgba(0,0,0,0.1);
 }
 </style>
-
 </head>
 
 <body>
 
-<div class="left">
+<div class="sidebar">
 
-<h3>Upload PDF</h3>
+<h3>Modules</h3>
+<div id="modules"></div>
 
-<div class="upload-box" id="uploadBox">
-Drag PDF here or Click
-<input type="file" id="fileInput" multiple accept="application/pdf" hidden>
+<hr>
+
+<input id="newModule" placeholder="New Module">
+<button onclick="addModule()">Add</button>
+
+<hr>
+
+<div class="upload" onclick="fileInput.click()">
+Upload PDF
+<input type="file" id="fileInput" multiple hidden>
 </div>
 
-<div id="fileList"></div>
+<div id="fileList">Loading...</div>
 
 </div>
 
-<div class="right">
+<div class="main">
+
+<h2 id="title"></h2>
+
+<div id="editor_en"></div>
+<div id="editor_cn"></div>
+
+<hr>
+
 <iframe id="viewer"></iframe>
+
 </div>
 
 <script>
@@ -96,31 +101,43 @@ const GITHUB_TOKEN = "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";
 const REPO = "Ouyangstephen/Ouyangstephen.github.io";
 const BRANCH = "main";
 
-/* 点击上传 */
-uploadBox.onclick = ()=> fileInput.click();
+/* 模块 */
+let modules = JSON.parse(localStorage.getItem("modules")) || [];
+let current = null;
 
-/* 拖拽 */
-uploadBox.addEventListener("dragover", e=>{
-e.preventDefault();
-uploadBox.style.borderColor="blue";
-});
+function saveModules(){
+localStorage.setItem("modules", JSON.stringify(modules));
+}
 
-uploadBox.addEventListener("dragleave", ()=>{
-uploadBox.style.borderColor="#ccc";
-});
+function addModule(){
+let name = newModule.value;
+if(!name) return;
 
-uploadBox.addEventListener("drop", e=>{
-e.preventDefault();
-uploadBox.style.borderColor="#ccc";
-uploadFiles(e.dataTransfer.files);
-});
+modules.push(name);
+saveModules();
+renderModules();
+}
 
-/* 选择 */
+function renderModules(){
+modulesDiv.innerHTML = modules.map((m,i)=>
+`<div class="module" onclick="selectModule(${i})">${m}</div>`
+).join("");
+}
+
+function selectModule(i){
+current = modules[i];
+title.innerText = current;
+}
+
+/* 编辑器 */
+let quillEN = new Quill('#editor_en',{theme:'snow'});
+let quillCN = new Quill('#editor_cn',{theme:'snow'});
+
+/* 上传 */
 fileInput.addEventListener("change", e=>{
 uploadFiles(e.target.files);
 });
 
-/* 上传 */
 async function uploadFiles(files){
 
 for(let file of files){
@@ -156,39 +173,42 @@ reader.readAsDataURL(file);
 });
 }
 
-/* 加载列表 */
+/* 加载文件 */
 async function loadFiles(){
+
+try{
 
 let res = await fetch(`https://api.github.com/repos/${REPO}/contents/pdfs`);
 
 if(res.status !== 200){
-fileList.innerHTML = "No files yet";
+fileList.innerHTML = "❌ No pdfs folder or no files";
 return;
 }
 
 let data = await res.json();
 
+if(data.length === 0){
+fileList.innerHTML = "No files yet";
+return;
+}
+
 let html="";
 
 data.forEach(f=>{
-
-html+=`
+html += `
 <div class="file">
-
-<span onclick="openPDF('${f.download_url}')">
-📄 ${f.name}
-</span>
-
-<span class="delete" onclick="deleteFile('${f.path}','${f.sha}')">
-🗑
-</span>
-
+<span onclick="openPDF('${f.download_url}')">📄 ${f.name}</span>
+<button onclick="deleteFile('${f.path}','${f.sha}')">X</button>
 </div>
 `;
-
 });
 
 fileList.innerHTML = html;
+
+}catch(e){
+fileList.innerHTML = "❌ Error loading files";
+}
+
 }
 
 /* 打开 */
@@ -206,7 +226,7 @@ Authorization:"token " + GITHUB_TOKEN,
 "Content-Type":"application/json"
 },
 body:JSON.stringify({
-message:"delete file",
+message:"delete",
 sha:sha,
 branch:BRANCH
 })
@@ -215,6 +235,8 @@ branch:BRANCH
 loadFiles();
 }
 
+/* 初始化 */
+renderModules();
 loadFiles();
 
 </script>
