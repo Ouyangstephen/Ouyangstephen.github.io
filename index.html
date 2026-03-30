@@ -27,9 +27,8 @@ button { margin:5px; }
 
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
-<button onclick="toggleAdmin()">Admin</button>
 
-<!-- 🔥 Logout按钮 -->
+<!-- Logout按钮 -->
 <button id="logoutBtn" class="logout" style="display:none;" onclick="logout()">Logout</button>
 
 <hr>
@@ -40,6 +39,7 @@ button { margin:5px; }
 <h2>Publications</h2>
 <div id="papers"></div>
 
+<!-- ADMIN -->
 <div id="admin" style="display:none;">
 
 <h3>Add Research</h3>
@@ -61,7 +61,35 @@ button { margin:5px; }
 let lang="en";
 let isAdmin=false;
 
-/* 安全加载 */
+/* 🔥 快捷键触发后台 */
+document.addEventListener("keydown", function(e){
+
+if(e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "v"){
+
+let pwd = prompt("Enter password:");
+
+if(pwd==="1234567890qw"){
+isAdmin = true;
+document.getElementById("admin").style.display = "block";
+document.getElementById("logoutBtn").style.display = "inline-block";
+render();
+}else{
+alert("Wrong password");
+}
+
+}
+
+});
+
+/* 退出 */
+function logout(){
+isAdmin=false;
+document.getElementById("admin").style.display="none";
+document.getElementById("logoutBtn").style.display="none";
+render();
+}
+
+/* 数据 */
 function loadData(){
 let raw = localStorage.getItem("site");
 
@@ -101,25 +129,6 @@ lang=l;
 render();
 }
 
-/* 登录 */
-function toggleAdmin(){
-let pwd = prompt("Password:");
-if(pwd==="1234567890qw"){
-isAdmin = true;
-document.getElementById("admin").style.display = "block";
-document.getElementById("logoutBtn").style.display = "inline-block";
-render();
-}
-}
-
-/* 🔥 退出 */
-function logout(){
-isAdmin = false;
-document.getElementById("admin").style.display = "none";
-document.getElementById("logoutBtn").style.display = "none";
-render();
-}
-
 /* 添加 */
 function addResearch(){
 
@@ -153,7 +162,7 @@ data.papers.push({
 title:title,
 auth:document.getElementById("p_auth").value,
 journal:document.getElementById("p_journal").value,
-year:document.getElementById("p_year").value
+year:p_year.value
 });
 
 save();
@@ -207,7 +216,6 @@ ${isAdmin ? `<br><button class="delete" onclick="deletePaper(${i})">Delete</butt
 });
 document.getElementById("papers").innerHTML=pHTML;
 
-/* 公式 */
 MathJax.typeset();
 }
 
