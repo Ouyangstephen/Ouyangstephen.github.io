@@ -55,6 +55,7 @@ button { margin:5px; }
 <script>
 
 let lang="en";
+let isAdmin=false;
 
 /* 安全加载 */
 function loadData(){
@@ -71,12 +72,9 @@ papers:[]
 
 try{
 let d = JSON.parse(raw);
-
 if(!d.research) d.research=[];
 if(!d.papers) d.papers=[];
-
 return d;
-
 }catch(e){
 localStorage.clear();
 return {
@@ -102,7 +100,9 @@ render();
 function toggleAdmin(){
 let pwd = prompt("Password:");
 if(pwd==="1234567890qw"){
-document.getElementById("admin").style.display="block";
+isAdmin = !isAdmin;
+document.getElementById("admin").style.display = isAdmin ? "block" : "none";
+render();
 }
 }
 
@@ -148,7 +148,6 @@ render();
 
 /* 删除 */
 function deleteResearch(i){
-
 if(confirm("Delete this item?")){
 data.research.splice(i,1);
 save();
@@ -157,7 +156,6 @@ render();
 }
 
 function deletePaper(i){
-
 if(confirm("Delete this paper?")){
 data.papers.splice(i,1);
 save();
@@ -177,8 +175,7 @@ data.research.forEach((r,i)=>{
 rHTML += `
 <div class="block">
 ${lang==="en"?r.en:r.cn}
-<br>
-<button class="delete" onclick="deleteResearch(${i})">Delete</button>
+${isAdmin ? `<br><button class="delete" onclick="deleteResearch(${i})">Delete</button>` : ""}
 </div>`;
 });
 document.getElementById("research").innerHTML=rHTML;
@@ -190,13 +187,13 @@ pHTML += `
 <div class="block">
 <b>${p.title}</b><br>
 ${p.auth}<br>
-<i>${p.journal} (${p.year})</i><br>
-<button class="delete" onclick="deletePaper(${i})">Delete</button>
+<i>${p.journal} (${p.year})</i>
+${isAdmin ? `<br><button class="delete" onclick="deletePaper(${i})">Delete</button>` : ""}
 </div>`;
 });
 document.getElementById("papers").innerHTML=pHTML;
 
-/* 渲染公式 */
+/* 公式 */
 MathJax.typeset();
 }
 
