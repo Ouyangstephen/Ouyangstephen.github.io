@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <title>Research Website</title>
 
-<!-- Quill -->
-<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
-
 <!-- MathJax -->
 <script>
 window.MathJax = {
@@ -17,7 +13,8 @@ window.MathJax = {
 <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
 <style>
-body { margin:0; font-family: Georgia; background:white; }
+body { margin:0; font-family: Arial; background:white; }
+
 .container { display:flex; }
 
 .sidebar {
@@ -43,13 +40,13 @@ background:#fafafa;
 border-left:4px solid #007acc;
 }
 
-.paper { margin:15px 0; }
-
 .hidden { display:none; }
 
-button { margin:5px; }
-</style>
+textarea { width:100%; height:100px; }
 
+button { margin:5px; padding:5px 10px; }
+
+</style>
 </head>
 
 <body>
@@ -85,28 +82,24 @@ button { margin:5px; }
 <input id="title_cn" placeholder="Title CN">
 <button onclick="saveBasic()">Save</button>
 
-<h3>Research Editor (EN)</h3>
-<div id="editor_en" style="height:150px;background:white;"></div>
-
-<h3>Research Editor (CN)</h3>
-<div id="editor_cn" style="height:150px;background:white;"></div>
-
-<button onclick="addResearch()">Add Research</button>
+<h3>Add Research</h3>
+<textarea id="text_en" placeholder="English content (supports LaTeX)"></textarea>
+<textarea id="text_cn" placeholder="中文内容"></textarea>
+<button onclick="addResearch()">Add</button>
 
 <h3>Add Paper</h3>
 <input id="p_title" placeholder="Title">
 <input id="p_auth" placeholder="Authors">
 <input id="p_journal" placeholder="Journal">
 <input id="p_year" placeholder="Year">
-<button onclick="addPaper()">Add Paper</button>
+<button onclick="addPaper()">Add</button>
 
 </div>
 
 <script>
 
 let lang="en";
-let currentPage="home";
-let quillEN, quillCN;
+let page="home";
 
 let data = JSON.parse(localStorage.getItem("site")) || {
 name:"Stephen Ouyang",
@@ -126,50 +119,56 @@ render();
 }
 
 function switchPage(p){
-currentPage=p;
+page=p;
 render();
 }
 
 function render(){
 
-document.getElementById("name").innerText = data.name;
+document.getElementById("name").innerText=data.name;
+
 let main=document.getElementById("main");
 
-if(currentPage==="home"){
-main.innerHTML = `
-<h1>${lang==="en"?data.title_en:data.title_cn}</h1>
-`;
+if(page==="home"){
+main.innerHTML=`<h1>${lang==="en"?data.title_en:data.title_cn}</h1>`;
 }
 
-if(currentPage==="research"){
+if(page==="research"){
 
 let html="<h1>Research</h1>";
 
-data.research.forEach((r,i)=>{
+for(let i=0;i<data.research.length;i++){
+
+let r=data.research[i];
+
 html+=`
 <div class="block">
 ${lang==="en"?r.en:r.cn}
-<button onclick="deleteResearch(${i})">Delete</button>
+<br>
+<button onclick="delResearch(${i})">Delete</button>
 </div>`;
-});
+}
 
 main.innerHTML=html;
 
-MathJax.typeset(); // 渲染公式
+MathJax.typeset();
 }
 
-if(currentPage==="papers"){
+if(page==="papers"){
 
 let html="<h1>Publications</h1>";
 
-data.papers.forEach(p=>{
+for(let i=0;i<data.papers.length;i++){
+
+let p=data.papers[i];
+
 html+=`
-<div class="paper">
+<div class="block">
 <b>${p.title}</b><br>
 ${p.auth}<br>
 <i>${p.journal} (${p.year})</i>
 </div>`;
-});
+}
 
 main.innerHTML=html;
 }
@@ -187,46 +186,45 @@ function saveBasic(){
 data.name=document.getElementById("name_input").value;
 data.title_en=document.getElementById("title_en").value;
 data.title_cn=document.getElementById("title_cn").value;
-save(); render();
+save();
+render();
 }
 
 function addResearch(){
 
-if(!quillEN || !quillCN){
-alert("Editor not ready");
-return;
-}
+let en=document.getElementById("text_en").value;
+let cn=document.getElementById("text_cn").value;
 
-let enHTML = quillEN.root.innerHTML;
-let cnHTML = quillCN.root.innerHTML;
-
-if(enHTML.trim()==="<p><br></p>"){
-alert("Please write something");
+if(en.trim()===""){
+alert("Please enter content");
 return;
 }
 
 data.research.push({
-en: enHTML,
-cn: cnHTML
+en: en,
+cn: cn
 });
+
+document.getElementById("text_en").value="";
+document.getElementById("text_cn").value="";
 
 save();
 render();
 
-quillEN.setText("");
-quillCN.setText("");
+alert("Added successfully");
 }
 
-function deleteResearch(i){
+function delResearch(i){
 data.research.splice(i,1);
-save(); render();
+save();
+render();
 }
 
 function addPaper(){
 
 let title=document.getElementById("p_title").value;
 
-if(!title){
+if(title===""){
 alert("Title required");
 return;
 }
@@ -238,16 +236,11 @@ journal:document.getElementById("p_journal").value,
 year:document.getElementById("p_year").value
 });
 
-save(); render();
+save();
+render();
 }
 
-window.onload=function(){
-
-quillEN = new Quill('#editor_en',{ theme:'snow' });
-quillCN = new Quill('#editor_cn',{ theme:'snow' });
-
 render();
-};
 
 </script>
 
