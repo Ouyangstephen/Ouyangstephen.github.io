@@ -15,6 +15,7 @@ window.MathJax = {
 body { font-family: Arial; background:white; }
 .block { margin:20px; padding:15px; background:#f0f0f0; }
 button { margin:5px; }
+.delete { background:red; color:white; }
 </style>
 
 </head>
@@ -43,10 +44,10 @@ button { margin:5px; }
 <button onclick="addResearch()">Add</button>
 
 <h3>Add Paper</h3>
-<input id="p_title">
-<input id="p_auth">
-<input id="p_journal">
-<input id="p_year">
+<input id="p_title" placeholder="Title">
+<input id="p_auth" placeholder="Authors">
+<input id="p_journal" placeholder="Journal">
+<input id="p_year" placeholder="Year">
 <button onclick="addPaper()">Add</button>
 
 </div>
@@ -55,9 +56,8 @@ button { margin:5px; }
 
 let lang="en";
 
-/* 🔥 安全读取数据 */
+/* 安全加载 */
 function loadData(){
-
 let raw = localStorage.getItem("site");
 
 if(!raw){
@@ -70,26 +70,21 @@ papers:[]
 }
 
 try{
-let parsed = JSON.parse(raw);
+let d = JSON.parse(raw);
 
-/* 防止旧结构 */
-if(!parsed.research) parsed.research=[];
-if(!parsed.papers) parsed.papers=[];
+if(!d.research) d.research=[];
+if(!d.papers) d.papers=[];
 
-return parsed;
+return d;
 
 }catch(e){
-
-/* 如果损坏，重置 */
 localStorage.clear();
-
 return {
 title_en:"Research in Total Synthesis",
 title_cn:"全合成研究",
 research:[],
 papers:[]
 };
-
 }
 }
 
@@ -111,6 +106,7 @@ document.getElementById("admin").style.display="block";
 }
 }
 
+/* 添加 */
 function addResearch(){
 
 let en=document.getElementById("text_en").value;
@@ -123,23 +119,53 @@ return;
 
 data.research.push({en:en, cn:cn});
 
+document.getElementById("text_en").value="";
+document.getElementById("text_cn").value="";
+
 save();
 render();
 }
 
 function addPaper(){
 
+let title=document.getElementById("p_title").value;
+
+if(title===""){
+alert("Title required");
+return;
+}
+
 data.papers.push({
-title:p_title.value,
-auth:p_auth.value,
-journal:p_journal.value,
-year:p_year.value
+title:title,
+auth:document.getElementById("p_auth").value,
+journal:document.getElementById("p_journal").value,
+year:document.getElementById("p_year").value
 });
 
 save();
 render();
 }
 
+/* 删除 */
+function deleteResearch(i){
+
+if(confirm("Delete this item?")){
+data.research.splice(i,1);
+save();
+render();
+}
+}
+
+function deletePaper(i){
+
+if(confirm("Delete this paper?")){
+data.papers.splice(i,1);
+save();
+render();
+}
+}
+
+/* 渲染 */
 function render(){
 
 document.getElementById("title").innerText =
@@ -147,19 +173,30 @@ document.getElementById("title").innerText =
 
 /* Research */
 let rHTML="";
-data.research.forEach(r=>{
-rHTML += "<div class='block'>" + (lang==="en"?r.en:r.cn) + "</div>";
+data.research.forEach((r,i)=>{
+rHTML += `
+<div class="block">
+${lang==="en"?r.en:r.cn}
+<br>
+<button class="delete" onclick="deleteResearch(${i})">Delete</button>
+</div>`;
 });
 document.getElementById("research").innerHTML=rHTML;
 
 /* Papers */
 let pHTML="";
-data.papers.forEach(p=>{
-pHTML += "<div class='block'><b>"+p.title+"</b><br>"+p.auth+"<br>"+p.journal+" ("+p.year+")</div>";
+data.papers.forEach((p,i)=>{
+pHTML += `
+<div class="block">
+<b>${p.title}</b><br>
+${p.auth}<br>
+<i>${p.journal} (${p.year})</i><br>
+<button class="delete" onclick="deletePaper(${i})">Delete</button>
+</div>`;
 });
 document.getElementById("papers").innerHTML=pHTML;
 
-/* 公式渲染 */
+/* 渲染公式 */
 MathJax.typeset();
 }
 
