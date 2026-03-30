@@ -2,40 +2,138 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Test</title>
+<title>Research Site</title>
+
+<!-- MathJax -->
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)'], ['$', '$']] }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+<style>
+body { font-family: Arial; background:white; }
+
+button { margin:5px; }
+
+.block {
+margin:20px;
+padding:15px;
+background:#f0f0f0;
+}
+</style>
+
 </head>
 
 <body>
 
-<h1>Research Page</h1>
+<h1 id="title"></h1>
 
-<button onclick="add()">Add Content</button>
+<button onclick="setLang('en')">EN</button>
+<button onclick="setLang('cn')">中文</button>
+<button onclick="toggleAdmin()">Admin</button>
 
-<div id="content"></div>
+<hr>
+
+<h2>Research</h2>
+<div id="research"></div>
+
+<hr>
+
+<h2>Publications</h2>
+<div id="papers"></div>
+
+<!-- ADMIN -->
+<div id="admin" style="display:none;">
+
+<h3>Add Research</h3>
+<textarea id="text_en"></textarea>
+<textarea id="text_cn"></textarea>
+<button onclick="addResearch()">Add</button>
+
+<h3>Add Paper</h3>
+<input id="p_title">
+<input id="p_auth">
+<input id="p_journal">
+<input id="p_year">
+<button onclick="addPaper()">Add</button>
+
+</div>
 
 <script>
 
-let data = [];
+let lang="en";
 
-function add(){
+let data = {
+title_en:"Research in Total Synthesis",
+title_cn:"全合成研究",
+research:[],
+papers:[]
+};
 
-let text = prompt("Type something");
+function setLang(l){
+lang=l;
+render();
+}
 
-data.push(text);
+function toggleAdmin(){
+let pwd = prompt("Password:");
+if(pwd==="1234567890qw"){
+document.getElementById("admin").style.display="block";
+}
+}
+
+function addResearch(){
+
+let en=document.getElementById("text_en").value;
+let cn=document.getElementById("text_cn").value;
+
+if(en===""){
+alert("write something");
+return;
+}
+
+data.research.push({en:en, cn:cn});
+
+render();
+}
+
+function addPaper(){
+
+data.papers.push({
+title:p_title.value,
+auth:p_auth.value,
+journal:p_journal.value,
+year:p_year.value
+});
 
 render();
 }
 
 function render(){
 
-let html="";
+document.getElementById("title").innerText =
+(lang==="en"?data.title_en:data.title_cn);
 
-for(let i=0;i<data.length;i++){
-html += "<p>"+data[i]+"</p>";
+let rHTML="";
+for(let i=0;i<data.research.length;i++){
+let r=data.research[i];
+rHTML += "<div class='block'>" + (lang==="en"?r.en:r.cn) + "</div>";
+}
+document.getElementById("research").innerHTML=rHTML;
+
+let pHTML="";
+for(let i=0;i<data.papers.length;i++){
+let p=data.papers[i];
+pHTML += "<div class='block'><b>"+p.title+"</b><br>"+p.auth+"<br>"+p.journal+" ("+p.year+")</div>";
+}
+document.getElementById("papers").innerHTML=pHTML;
+
+MathJax.typeset();
 }
 
-document.getElementById("content").innerHTML = html;
-}
+render();
 
 </script>
 
