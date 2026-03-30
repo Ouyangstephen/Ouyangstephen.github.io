@@ -2,9 +2,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Research Site</title>
+<title>Stable Research Site</title>
 
-<!-- MathJax -->
 <script>
 window.MathJax = {
   tex: { inlineMath: [['\\(','\\)'], ['$', '$']] }
@@ -36,7 +35,6 @@ button { margin:5px; }
 <h2>Publications</h2>
 <div id="papers"></div>
 
-<!-- ADMIN -->
 <div id="admin" style="display:none;">
 
 <h3>Add Research</h3>
@@ -57,15 +55,46 @@ button { margin:5px; }
 
 let lang="en";
 
-// ✅ 从 localStorage 读取
-let data = JSON.parse(localStorage.getItem("site")) || {
+/* 🔥 安全读取数据 */
+function loadData(){
+
+let raw = localStorage.getItem("site");
+
+if(!raw){
+return {
+title_en:"Research in Total Synthesis",
+title_cn:"全合成研究",
+research:[],
+papers:[]
+};
+}
+
+try{
+let parsed = JSON.parse(raw);
+
+/* 防止旧结构 */
+if(!parsed.research) parsed.research=[];
+if(!parsed.papers) parsed.papers=[];
+
+return parsed;
+
+}catch(e){
+
+/* 如果损坏，重置 */
+localStorage.clear();
+
+return {
 title_en:"Research in Total Synthesis",
 title_cn:"全合成研究",
 research:[],
 papers:[]
 };
 
-// ✅ 保存函数
+}
+}
+
+let data = loadData();
+
 function save(){
 localStorage.setItem("site", JSON.stringify(data));
 }
@@ -88,13 +117,13 @@ let en=document.getElementById("text_en").value;
 let cn=document.getElementById("text_cn").value;
 
 if(en.trim()===""){
-alert("write something");
+alert("Please write something");
 return;
 }
 
 data.research.push({en:en, cn:cn});
 
-save(); // ⭐关键
+save();
 render();
 }
 
@@ -107,7 +136,7 @@ journal:p_journal.value,
 year:p_year.value
 });
 
-save(); // ⭐关键
+save();
 render();
 }
 
@@ -116,23 +145,21 @@ function render(){
 document.getElementById("title").innerText =
 (lang==="en"?data.title_en:data.title_cn);
 
-// Research
+/* Research */
 let rHTML="";
-for(let i=0;i<data.research.length;i++){
-let r=data.research[i];
+data.research.forEach(r=>{
 rHTML += "<div class='block'>" + (lang==="en"?r.en:r.cn) + "</div>";
-}
+});
 document.getElementById("research").innerHTML=rHTML;
 
-// Papers
+/* Papers */
 let pHTML="";
-for(let i=0;i<data.papers.length;i++){
-let p=data.papers[i];
+data.papers.forEach(p=>{
 pHTML += "<div class='block'><b>"+p.title+"</b><br>"+p.auth+"<br>"+p.journal+" ("+p.year+")</div>";
-}
+});
 document.getElementById("papers").innerHTML=pHTML;
 
-// 公式渲染
+/* 公式渲染 */
 MathJax.typeset();
 }
 
