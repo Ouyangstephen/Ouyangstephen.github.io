@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Academic Website</title>
+<title>Ultimate Academic Website</title>
 
 <!-- Quill -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
@@ -20,18 +20,24 @@ body { margin:0; font-family: Arial; background:white; }
 
 /* Sidebar */
 .sidebar {
-width:220px;
+width:240px;
 background:#f5f5f5;
 height:100vh;
 padding:20px;
 position:fixed;
+overflow:auto;
 }
 
-.sidebar div { margin:10px 0; cursor:pointer; }
+.sidebar div {
+margin:10px 0;
+cursor:pointer;
+}
+
+.sidebar div:hover { color:#007acc; }
 
 /* Main */
 .main {
-margin-left:240px;
+margin-left:260px;
 padding:40px;
 max-width:900px;
 }
@@ -46,8 +52,9 @@ border-left:4px solid #007acc;
 
 .delete { background:red; color:white; }
 .logout { background:black; color:white; }
-
 .hidden { display:none; }
+
+img { max-width:100%; margin-top:10px; }
 
 </style>
 
@@ -59,12 +66,11 @@ border-left:4px solid #007acc;
 
 <!-- Sidebar -->
 <div class="sidebar">
-<h2 id="name"></h2>
+<h2>My Site</h2>
 
 <div onclick="switchPage('home')">Home</div>
-<div onclick="switchPage('research')">Research</div>
-<div onclick="switchPage('papers')">Publications</div>
-<div onclick="switchPage('cv')">CV</div>
+
+<div id="moduleList"></div>
 
 <hr>
 
@@ -84,25 +90,26 @@ border-left:4px solid #007acc;
 
 <h2>Admin Panel</h2>
 
+<h3>Add Module</h3>
+<input id="new_module">
+<button onclick="addModule()">Add Module</button>
+
+<h3>Select Module</h3>
+<div id="adminModuleList"></div>
+
 <h3>Editor EN</h3>
 <div id="editor_en" style="height:150px;"></div>
 
 <h3>Editor CN</h3>
 <div id="editor_cn" style="height:150px;"></div>
 
+<h3>Upload Image</h3>
 <input type="file" id="img_file">
-<button onclick="addResearch()">Add Research Block</button>
 
-<h3>Add Paper</h3>
-<input id="p_title" placeholder="Title">
-<input id="p_auth" placeholder="Authors">
-<input id="p_journal" placeholder="Journal">
-<input id="p_year" placeholder="Year">
-<button onclick="addPaper()">Add Paper</button>
+<h3>Upload File (PDF etc.)</h3>
+<input type="file" id="file_file">
 
-<h3>Upload CV (PDF)</h3>
-<input type="file" id="cv_file">
-<button onclick="uploadCV()">Upload CV</button>
+<button onclick="addContent()">Add Content</button>
 
 </div>
 
@@ -111,43 +118,47 @@ border-left:4px solid #007acc;
 let lang="en";
 let current="home";
 let isAdmin=false;
+let selectedModule=null;
 
 let quillEN, quillCN;
 
-/* 安全加载 */
+/* 数据 */
 function loadData(){
 let raw = localStorage.getItem("site");
+
 if(!raw){
-return {name:"Your Name",research:[],papers:[],cv:null};
+return {modules:[]};
 }
+
 try{
 let d=JSON.parse(raw);
-if(!d.research) d.research=[];
-if(!d.papers) d.papers=[];
+if(!d.modules) d.modules=[];
 return d;
 }catch(e){
 localStorage.clear();
-return {name:"Your Name",research:[],papers:[],cv:null};
+return {modules:[]};
 }
 }
 
 let data=loadData();
 
 function save(){
-localStorage.setItem("site",JSON.stringify(data));
+localStorage.setItem("site", JSON.stringify(data));
 }
 
-function setLang(l){
-lang=l;
-render();
-}
-
+/* 切换 */
 function switchPage(p){
 current=p;
 render();
 }
 
-/* 🔥 快捷键后台 */
+/* 语言 */
+function setLang(l){
+lang=l;
+render();
+}
+
+/* 快捷键 */
 document.addEventListener("keydown",function(e){
 if(e.ctrlKey && e.shiftKey && e.key.toLowerCase()==="v"){
 let pwd=prompt("Password:");
@@ -167,24 +178,65 @@ document.getElementById("logoutBtn").style.display="none";
 render();
 }
 
-/* 添加研究 */
-function addResearch(){
+/* 模块 */
+function addModule(){
 
-let enHTML=quillEN.root.innerHTML;
-let cnHTML=quillCN.root.innerHTML;
+let name=document.getElementById("new_module").value;
 
-let file=document.getElementById("img_file").files[0];
+if(!name){
+alert("Enter module name");
+return;
+}
 
-if(file){
+data.modules.push({
+name:name,
+contents:[]
+});
+
+save();
+render();
+}
+
+/* 内容添加 */
+function addContent(){
+
+if(selectedModule===null){
+alert("Select module first");
+return;
+}
+
+let enHTML = quillEN.root.innerHTML;
+let cnHTML = quillCN.root.innerHTML;
+
+let img = document.getElementById("img_file").files[0];
+let file = document.getElementById("file_file").files[0];
+
+let content = { en:enHTML, cn:cnHTML };
+
+function saveContent(){
+data.modules[selectedModule].contents.push(content);
+save();
+render();
+}
+
+/* 图片 */
+if(img){
 let reader=new FileReader();
 reader.onload=function(){
-data.research.push({en:enHTML,cn:cnHTML,img:reader.result});
-save(); render();
+content.img=reader.result;
+saveContent();
+};
+reader.readAsDataURL(img);
+}else if(file){
+let reader=new FileReader();
+reader.onload=function(){
+content.file=reader.result;
+content.filename=file.name;
+saveContent();
 };
 reader.readAsDataURL(file);
 }else{
-data.research.push({en:enHTML,cn:cnHTML});
-save(); render();
+saveContent();
 }
 
 quillEN.setText("");
@@ -192,95 +244,68 @@ quillCN.setText("");
 }
 
 /* 删除 */
-function deleteResearch(i){
-if(confirm("Delete?")){
-data.research.splice(i,1);
-save(); render();
-}
-}
-
-/* 论文 */
-function addPaper(){
-data.papers.push({
-title:p_title.value,
-auth:p_auth.value,
-journal:p_journal.value,
-year:p_year.value
-});
-save(); render();
-}
-
-function deletePaper(i){
-data.papers.splice(i,1);
-save(); render();
-}
-
-/* CV */
-function uploadCV(){
-let file=cv_file.files[0];
-let reader=new FileReader();
-reader.onload=function(){
-data.cv=reader.result;
+function deleteContent(m,i){
+data.modules[m].contents.splice(i,1);
 save();
-alert("CV uploaded");
-};
-reader.readAsDataURL(file);
+render();
+}
+
+function deleteModule(i){
+data.modules.splice(i,1);
+save();
+render();
 }
 
 /* 渲染 */
 function render(){
 
-document.getElementById("name").innerText=data.name;
+let moduleList=document.getElementById("moduleList");
+moduleList.innerHTML="";
+
+data.modules.forEach((m,i)=>{
+moduleList.innerHTML+=`
+<div onclick="current=${i};render();">${m.name}</div>`;
+});
+
+/* Admin module list */
+let adminList=document.getElementById("adminModuleList");
+if(adminList){
+adminList.innerHTML="";
+data.modules.forEach((m,i)=>{
+adminList.innerHTML+=`
+<div onclick="selectedModule=${i}">
+${m.name}
+${isAdmin?`<button onclick="deleteModule(${i})">X</button>`:""}
+</div>`;
+});
+}
 
 let main=document.getElementById("main");
 
+/* Home */
 if(current==="home"){
 main.innerHTML="<h1>Welcome</h1>";
+return;
 }
 
-if(current==="research"){
+/* Module page */
+let m=data.modules[current];
 
-let html="<h1>Research</h1>";
+let html=`<h1>${m.name}</h1>`;
 
-data.research.forEach((r,i)=>{
+m.contents.forEach((c,i)=>{
 html+=`
 <div class="block">
-${lang==="en"?r.en:r.cn}
-${r.img?`<img src="${r.img}">`:""}
-${isAdmin?`<br><button class="delete" onclick="deleteResearch(${i})">Delete</button>`:""}
+${lang==="en"?c.en:c.cn}
+${c.img?`<img src="${c.img}">`:""}
+${c.file?`<br><a href="${c.file}" download="${c.filename}">Download ${c.filename}</a>`:""}
+${isAdmin?`<br><button class="delete" onclick="deleteContent(${current},${i})">Delete</button>`:""}
 </div>`;
 });
 
 main.innerHTML=html;
+
 MathJax.typeset();
-}
-
-if(current==="papers"){
-
-let html="<h1>Publications</h1>";
-
-data.papers.forEach((p,i)=>{
-html+=`
-<div class="block">
-<b>${p.title}</b><br>
-${p.auth}<br>
-<i>${p.journal} (${p.year})</i>
-${isAdmin?`<br><button class="delete" onclick="deletePaper(${i})">Delete</button>`:""}
-</div>`;
-});
-
-main.innerHTML=html;
-}
-
-if(current==="cv"){
-
-if(data.cv){
-main.innerHTML=`<h1>CV</h1><a href="${data.cv}" download="CV.pdf">Download CV</a>`;
-}else{
-main.innerHTML="<h1>No CV uploaded</h1>";
-}
-}
-
 }
 
 /* 初始化 */
