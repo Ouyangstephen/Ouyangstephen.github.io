@@ -2,41 +2,84 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Research PDFs</title>
+<title>Research PDF System</title>
 
 <style>
-body { margin:0; font-family:Arial; display:flex; }
-
-.left {
-width:350px;
-border-right:1px solid #ddd;
-padding:20px;
+body {
+margin:0;
+font-family:Arial;
+display:flex;
 }
 
+/* 左侧 */
+.left {
+width:360px;
+border-right:1px solid #ddd;
+padding:20px;
+background:#fafafa;
+}
+
+/* 上传区 */
+.upload-box {
+border:2px dashed #ccc;
+padding:30px;
+text-align:center;
+cursor:pointer;
+border-radius:10px;
+margin-bottom:20px;
+transition:0.2s;
+}
+
+.upload-box:hover {
+border-color:#007bff;
+}
+
+/* 文件 */
 .file {
-padding:10px;
+padding:12px;
 border-bottom:1px solid #eee;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.file span {
 cursor:pointer;
 }
 
+.delete {
+color:red;
+cursor:pointer;
+}
+
+/* 右侧 */
 .right {
 flex:1;
 padding:20px;
 }
 
+/* PDF预览 */
 iframe {
 width:100%;
-height:90vh;
+height:92vh;
 border:none;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
 }
 </style>
+
 </head>
 
 <body>
 
 <div class="left">
 
-<h3>PDF Library</h3>
+<h3>Upload PDF</h3>
+
+<div class="upload-box" id="uploadBox">
+Drag PDF here or Click
+<input type="file" id="fileInput" multiple accept="application/pdf" hidden>
+</div>
 
 <div id="fileList"></div>
 
@@ -48,15 +91,78 @@ border:none;
 
 <script>
 
+/* 🔥 修改这里 */
+const GITHUB_TOKEN = "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";
 const REPO = "Ouyangstephen/Ouyangstephen.github.io";
+const BRANCH = "main";
 
-/* 加载文件 */
+/* 点击上传 */
+uploadBox.onclick = ()=> fileInput.click();
+
+/* 拖拽 */
+uploadBox.addEventListener("dragover", e=>{
+e.preventDefault();
+uploadBox.style.borderColor="blue";
+});
+
+uploadBox.addEventListener("dragleave", ()=>{
+uploadBox.style.borderColor="#ccc";
+});
+
+uploadBox.addEventListener("drop", e=>{
+e.preventDefault();
+uploadBox.style.borderColor="#ccc";
+uploadFiles(e.dataTransfer.files);
+});
+
+/* 选择 */
+fileInput.addEventListener("change", e=>{
+uploadFiles(e.target.files);
+});
+
+/* 上传 */
+async function uploadFiles(files){
+
+for(let file of files){
+
+let base64 = await toBase64(file);
+
+let path = "pdfs/" + Date.now() + "_" + file.name;
+
+await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`,{
+method:"PUT",
+headers:{
+Authorization:"token " + GITHUB_TOKEN,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+message:"upload pdf",
+content:base64.split(",")[1],
+branch:BRANCH
+})
+});
+
+}
+
+loadFiles();
+}
+
+/* base64 */
+function toBase64(file){
+return new Promise(res=>{
+let reader=new FileReader();
+reader.onload=()=>res(reader.result);
+reader.readAsDataURL(file);
+});
+}
+
+/* 加载列表 */
 async function loadFiles(){
 
 let res = await fetch(`https://api.github.com/repos/${REPO}/contents/pdfs`);
 
 if(res.status !== 200){
-fileList.innerHTML = "No PDFs yet";
+fileList.innerHTML = "No files yet";
 return;
 }
 
@@ -67,8 +173,16 @@ let html="";
 data.forEach(f=>{
 
 html+=`
-<div class="file" onclick="openPDF('${f.download_url}')">
+<div class="file">
+
+<span onclick="openPDF('${f.download_url}')">
 📄 ${f.name}
+</span>
+
+<span class="delete" onclick="deleteFile('${f.path}','${f.sha}')">
+🗑
+</span>
+
 </div>
 `;
 
@@ -80,6 +194,25 @@ fileList.innerHTML = html;
 /* 打开 */
 function openPDF(url){
 viewer.src = url;
+}
+
+/* 删除 */
+async function deleteFile(path,sha){
+
+await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`,{
+method:"DELETE",
+headers:{
+Authorization:"token " + GITHUB_TOKEN,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+message:"delete file",
+sha:sha,
+branch:BRANCH
+})
+});
+
+loadFiles();
 }
 
 loadFiles();
