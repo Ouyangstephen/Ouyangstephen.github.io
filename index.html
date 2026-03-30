@@ -16,6 +16,7 @@ body { font-family: Arial; background:white; }
 .block { margin:20px; padding:15px; background:#f0f0f0; }
 button { margin:5px; }
 .delete { background:red; color:white; }
+.logout { background:#333; color:white; }
 </style>
 
 </head>
@@ -27,6 +28,9 @@ button { margin:5px; }
 <button onclick="setLang('en')">EN</button>
 <button onclick="setLang('cn')">中文</button>
 <button onclick="toggleAdmin()">Admin</button>
+
+<!-- 🔥 Logout按钮 -->
+<button id="logoutBtn" class="logout" style="display:none;" onclick="logout()">Logout</button>
 
 <hr>
 
@@ -97,13 +101,23 @@ lang=l;
 render();
 }
 
+/* 登录 */
 function toggleAdmin(){
 let pwd = prompt("Password:");
 if(pwd==="1234567890qw"){
-isAdmin = !isAdmin;
-document.getElementById("admin").style.display = isAdmin ? "block" : "none";
+isAdmin = true;
+document.getElementById("admin").style.display = "block";
+document.getElementById("logoutBtn").style.display = "inline-block";
 render();
 }
+}
+
+/* 🔥 退出 */
+function logout(){
+isAdmin = false;
+document.getElementById("admin").style.display = "none";
+document.getElementById("logoutBtn").style.display = "none";
+render();
 }
 
 /* 添加 */
