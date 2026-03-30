@@ -2,245 +2,40 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Research Website</title>
-
-<!-- MathJax -->
-<script>
-window.MathJax = {
-  tex: { inlineMath: [['\\(','\\)'], ['$', '$']] }
-};
-</script>
-<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-
-<style>
-body { margin:0; font-family: Arial; background:white; }
-
-.container { display:flex; }
-
-.sidebar {
-width:220px;
-background:#f5f5f5;
-height:100vh;
-padding:20px;
-position:fixed;
-}
-
-.sidebar div { margin:10px 0; cursor:pointer; }
-
-.main {
-margin-left:240px;
-padding:40px;
-max-width:900px;
-}
-
-.block {
-margin:20px 0;
-padding:15px;
-background:#fafafa;
-border-left:4px solid #007acc;
-}
-
-.hidden { display:none; }
-
-textarea { width:100%; height:100px; }
-
-button { margin:5px; padding:5px 10px; }
-
-</style>
+<title>Test</title>
 </head>
 
 <body>
 
-<div class="container">
+<h1>Research Page</h1>
 
-<div class="sidebar">
-<h2 id="name"></h2>
+<button onclick="add()">Add Content</button>
 
-<div onclick="switchPage('home')">Home</div>
-<div onclick="switchPage('research')">Research</div>
-<div onclick="switchPage('papers')">Publications</div>
-
-<hr>
-
-<button onclick="setLang('en')">EN</button>
-<button onclick="setLang('cn')">中文</button>
-<button onclick="toggleAdmin()">Admin</button>
-</div>
-
-<div class="main" id="main"></div>
-
-</div>
-
-<!-- ADMIN -->
-<div id="admin" class="hidden main">
-
-<h2>Admin Panel</h2>
-
-<h3>Basic</h3>
-<input id="name_input" placeholder="Name">
-<input id="title_en" placeholder="Title EN">
-<input id="title_cn" placeholder="Title CN">
-<button onclick="saveBasic()">Save</button>
-
-<h3>Add Research</h3>
-<textarea id="text_en" placeholder="English content (supports LaTeX)"></textarea>
-<textarea id="text_cn" placeholder="中文内容"></textarea>
-<button onclick="addResearch()">Add</button>
-
-<h3>Add Paper</h3>
-<input id="p_title" placeholder="Title">
-<input id="p_auth" placeholder="Authors">
-<input id="p_journal" placeholder="Journal">
-<input id="p_year" placeholder="Year">
-<button onclick="addPaper()">Add</button>
-
-</div>
+<div id="content"></div>
 
 <script>
 
-let lang="en";
-let page="home";
+let data = [];
 
-let data = JSON.parse(localStorage.getItem("site")) || {
-name:"Stephen Ouyang",
-title_en:"Research in Total Synthesis",
-title_cn:"全合成研究",
-research:[],
-papers:[]
-};
+function add(){
 
-function save(){
-localStorage.setItem("site", JSON.stringify(data));
-}
+let text = prompt("Type something");
 
-function setLang(l){
-lang=l;
-render();
-}
+data.push(text);
 
-function switchPage(p){
-page=p;
 render();
 }
 
 function render(){
 
-document.getElementById("name").innerText=data.name;
+let html="";
 
-let main=document.getElementById("main");
-
-if(page==="home"){
-main.innerHTML=`<h1>${lang==="en"?data.title_en:data.title_cn}</h1>`;
+for(let i=0;i<data.length;i++){
+html += "<p>"+data[i]+"</p>";
 }
 
-if(page==="research"){
-
-let html="<h1>Research</h1>";
-
-for(let i=0;i<data.research.length;i++){
-
-let r=data.research[i];
-
-html+=`
-<div class="block">
-${lang==="en"?r.en:r.cn}
-<br>
-<button onclick="delResearch(${i})">Delete</button>
-</div>`;
+document.getElementById("content").innerHTML = html;
 }
-
-main.innerHTML=html;
-
-MathJax.typeset();
-}
-
-if(page==="papers"){
-
-let html="<h1>Publications</h1>";
-
-for(let i=0;i<data.papers.length;i++){
-
-let p=data.papers[i];
-
-html+=`
-<div class="block">
-<b>${p.title}</b><br>
-${p.auth}<br>
-<i>${p.journal} (${p.year})</i>
-</div>`;
-}
-
-main.innerHTML=html;
-}
-
-}
-
-function toggleAdmin(){
-let pwd=prompt("Password:");
-if(pwd==="1234567890qw"){
-document.getElementById("admin").classList.toggle("hidden");
-}
-}
-
-function saveBasic(){
-data.name=document.getElementById("name_input").value;
-data.title_en=document.getElementById("title_en").value;
-data.title_cn=document.getElementById("title_cn").value;
-save();
-render();
-}
-
-function addResearch(){
-
-let en=document.getElementById("text_en").value;
-let cn=document.getElementById("text_cn").value;
-
-if(en.trim()===""){
-alert("Please enter content");
-return;
-}
-
-data.research.push({
-en: en,
-cn: cn
-});
-
-document.getElementById("text_en").value="";
-document.getElementById("text_cn").value="";
-
-save();
-render();
-
-alert("Added successfully");
-}
-
-function delResearch(i){
-data.research.splice(i,1);
-save();
-render();
-}
-
-function addPaper(){
-
-let title=document.getElementById("p_title").value;
-
-if(title===""){
-alert("Title required");
-return;
-}
-
-data.papers.push({
-title:title,
-auth:document.getElementById("p_auth").value,
-journal:document.getElementById("p_journal").value,
-year:document.getElementById("p_year").value
-});
-
-save();
-render();
-}
-
-render();
 
 </script>
 
