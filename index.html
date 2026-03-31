@@ -2,32 +2,17 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>FINAL PRO MULTILINGUAL</title>
+<title>FINAL FILE SYSTEM</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
 <style>
 body { margin:0; font-family: Arial; }
-
-.sidebar {
-width:220px;
-background:#f5f5f5;
-height:100vh;
-padding:20px;
-position:fixed;
-}
-
+.sidebar { width:220px; background:#f5f5f5; height:100vh; padding:20px; position:fixed; }
 .main { margin-left:240px; padding:40px; }
 
-.block {
-margin:20px 0;
-padding:15px;
-background:#fafafa;
-}
-
-.active { color:blue; font-weight:bold; }
-.selected { background:#d0e7ff; }
+.block { margin:20px 0; padding:15px; background:#fafafa; }
 
 .file-item {
 display:flex;
@@ -37,6 +22,9 @@ border-bottom:1px solid #ccc;
 }
 
 .delete { background:red; color:white; }
+
+.active { color:blue; font-weight:bold; }
+.selected { background:#d0e7ff; }
 </style>
 </head>
 
@@ -56,11 +44,10 @@ border-bottom:1px solid #ccc;
 
 <div id="admin" style="display:none;" class="main">
 
-<h3>Module Management</h3>
-
-<input id="new_module_en" placeholder="Module EN">
-<input id="new_module_cn" placeholder="模块 CN">
-<button onclick="addModule()">Add Module</button>
+<h3>Modules</h3>
+<input id="new_en" placeholder="EN">
+<input id="new_cn" placeholder="CN">
+<button onclick="addModule()">Add</button>
 
 <div id="moduleList"></div>
 
@@ -71,13 +58,11 @@ border-bottom:1px solid #ccc;
 
 <hr>
 
-<h4>Editor EN</h4>
 <div id="editor_en"></div>
-
-<h4>Editor CN</h4>
 <div id="editor_cn"></div>
 
-<input type="file" id="fileUpload">
+<!-- 🔥 多文件 -->
+<input type="file" id="files" multiple>
 
 <button onclick="addContent()">Add Content</button>
 
@@ -104,7 +89,8 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 let modules=[], contents=[];
-let current=null, selected=null, isAdmin=false;
+let current=null, selected=null;
+let isAdmin=false;
 let lang="en";
 
 let quillEN=new Quill('#editor_en',{theme:'snow'});
@@ -137,19 +123,15 @@ render();
 
 /* 加载 */
 async function load(){
+modules=[]; contents=[];
 
-modules=[];
-contents=[];
-
-const m=await getDocs(collection(db,"modules"));
+let m=await getDocs(collection(db,"modules"));
 m.forEach(d=>modules.push({id:d.id,...d.data()}));
 
-const c=await getDocs(collection(db,"contents"));
+let c=await getDocs(collection(db,"contents"));
 c.forEach(d=>contents.push({id:d.id,...d.data()}));
 
-if(modules.length>0 && current===null){
-current=0;
-}
+if(modules.length>0 && current===null) current=0;
 
 render();
 }
@@ -164,9 +146,9 @@ ${lang==="en"?m.name_en:m.name_cn}
 ).join("");
 
 moduleList.innerHTML=modules.map((m,i)=>
-`<div class="admin-item ${selected===i?'selected':''}" onclick="selectModule(${i})">
+`<div class="selected" onclick="selectModule(${i})">
 ${m.name_en} / ${m.name_cn}
-${isAdmin?`<button class="delete" onclick="deleteModule('${m.id}')">Delete</button>`:""}
+<button class="delete" onclick="deleteModule('${m.id}')">Delete</button>
 </div>`
 ).join("");
 
@@ -187,8 +169,7 @@ html+=`
 <div class="block">
 ${lang==="en"?c.en:c.cn}
 
-/* 文件列表 */
-${c.files?c.files.map(f=>`
+${c.files ? c.files.map(f=>`
 <div class="file-item">
 <span>${f.name}</span>
 <div>
@@ -196,7 +177,7 @@ ${c.files?c.files.map(f=>`
 ${isAdmin?`<button onclick="deleteFile('${c.id}','${f.path}')">Delete</button>`:""}
 </div>
 </div>
-`).join(""):""}
+`).join("") : ""}
 
 </div>`;
 }
@@ -208,8 +189,8 @@ main.innerHTML=html;
 /* 模块 */
 window.addModule=async()=>{
 await addDoc(collection(db,"modules"),{
-name_en:new_module_en.value,
-name_cn:new_module_cn.value
+name_en:new_en.value,
+name_cn:new_cn.value
 });
 load();
 };
@@ -218,12 +199,10 @@ window.selectModule=i=>{
 selected=i;
 edit_en.value=modules[i].name_en;
 edit_cn.value=modules[i].name_cn;
-render();
 };
 
 window.updateModule=async()=>{
-let id=modules[selected].id;
-await updateDoc(doc(db,"modules",id),{
+await updateDoc(doc(db,"modules",modules[selected].id),{
 name_en:edit_en.value,
 name_cn:edit_cn.value
 });
@@ -235,41 +214,47 @@ await deleteDoc(doc(db,"modules",id));
 load();
 };
 
-/* 内容 */
+/* 🔥 核心：多文件追加 */
 window.addContent=async()=>{
 
 if(selected===null) return alert("Select module");
 
-let filesArr=[];
+let newFiles=[];
 
-if(fileUpload.files[0]){
-let f=fileUpload.files[0];
-let path="files/"+Date.now()+f.name;
+/* 遍历所有文件 */
+for(let f of files.files){
+
+let path="files/"+Date.now()+"_"+f.name;
 
 let r=ref(storage,path);
 await uploadBytes(r,f);
+
 let url=await getDownloadURL(r);
 
-filesArr.push({name:f.name,url,path});
+newFiles.push({
+name:f.name,
+url:url,
+path:path
+});
 }
 
+/* 创建新内容（不覆盖旧内容） */
 await addDoc(collection(db,"contents"),{
 en:quillEN.root.innerHTML,
 cn:quillCN.root.innerHTML,
 module:modules[selected].id,
-files:filesArr
+files:newFiles
 });
 
 load();
 };
 
-/* 删除文件 */
+/* 删除单个文件 */
 window.deleteFile=async(contentId,path)=>{
 await deleteObject(ref(storage,path));
 load();
 };
 
-/* 打开 */
 window.openModule=i=>{
 current=i;
 render();
