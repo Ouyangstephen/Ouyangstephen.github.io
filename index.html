@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>FINAL STABLE CLOUD SITE</title>
+<title>FINAL PRO SYSTEM</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
@@ -11,8 +11,15 @@
 body { margin:0; font-family: Arial; }
 .sidebar { width:220px; background:#f5f5f5; height:100vh; padding:20px; position:fixed; }
 .main { margin-left:240px; padding:40px; }
+
 .block { margin:20px 0; padding:15px; background:#fafafa; }
+
 .active { color:blue; font-weight:bold; }
+.selected { background:#d0e7ff; }
+
+.admin-item { cursor:pointer; padding:5px; margin:3px 0; }
+.delete { background:red; color:white; margin-left:10px; }
+
 </style>
 </head>
 
@@ -28,11 +35,19 @@ body { margin:0; font-family: Arial; }
 
 <div id="admin" style="display:none;" class="main">
 
-<input id="new_module" placeholder="Module name">
+<h3>Module Management</h3>
+
+<input id="new_module" placeholder="New module name">
 <button onclick="addModule()">Add Module</button>
 
-<h4>Select Module</h4>
+<h4>Modules</h4>
 <div id="moduleList"></div>
+
+<h4>Edit Module Name</h4>
+<input id="edit_module_name">
+<button onclick="updateModuleName()">Update Name</button>
+
+<hr>
 
 <h4>Editor EN</h4>
 <div id="editor_en"></div>
@@ -50,10 +65,10 @@ body { margin:0; font-family: Arial; }
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
 
-/* 🔥 替换这里 */
+/* 🔥 替换 */
 const firebaseConfig = {
   apiKey: "AIzaSyDovU5fqi3Wl0fUIm8iAxYDpm1TrS1R5o4",
   authDomain: "self-website-385d9.firebaseapp.com",
@@ -68,50 +83,50 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 /* 状态 */
-let modules = [];
-let contents = [];
-let current = null;
-let selected = null;
-let isAdmin = false;
+let modules=[];
+let contents=[];
+let current=null;
+let selected=null;
+let isAdmin=false;
 
 /* 编辑器 */
-let quillEN = new Quill('#editor_en',{theme:'snow'});
-let quillCN = new Quill('#editor_cn',{theme:'snow'});
+let quillEN=new Quill('#editor_en',{theme:'snow'});
+let quillCN=new Quill('#editor_cn',{theme:'snow'});
 
-/* 后台快捷键 */
+/* 后台 */
 document.addEventListener("keydown", e=>{
-if(e.ctrlKey && e.shiftKey && e.key === "V"){
-let pwd = prompt("Password");
-if(pwd === "1234567890qw"){
-isAdmin = true;
-admin.style.display = "block";
-logoutBtn.style.display = "inline";
+if(e.ctrlKey && e.shiftKey && e.key==="V"){
+let pwd=prompt("Password");
+if(pwd==="1234567890qw"){
+isAdmin=true;
+admin.style.display="block";
+logoutBtn.style.display="inline";
+render();
 }
 }
 });
 
-window.logout = ()=>{
-isAdmin = false;
-admin.style.display = "none";
-logoutBtn.style.display = "none";
+window.logout=()=>{
+isAdmin=false;
+admin.style.display="none";
+logoutBtn.style.display="none";
+render();
 };
 
-/* 🔥 加载 */
+/* 加载 */
 async function load(){
 
-main.innerHTML = "Loading...";
+modules=[];
+contents=[];
 
-modules = [];
-contents = [];
+const mSnap=await getDocs(collection(db,"modules"));
+mSnap.forEach(d=>modules.push({id:d.id,...d.data()}));
 
-const mSnap = await getDocs(collection(db,"modules"));
-mSnap.forEach(d => modules.push({id:d.id,...d.data()}));
+const cSnap=await getDocs(collection(db,"contents"));
+cSnap.forEach(d=>contents.push({id:d.id,...d.data()}));
 
-const cSnap = await getDocs(collection(db,"contents"));
-cSnap.forEach(d => contents.push({id:d.id,...d.data()}));
-
-if(modules.length > 0){
-current = current === null ? 0 : current;
+if(modules.length>0 && current===null){
+current=0;
 }
 
 render();
@@ -120,89 +135,113 @@ render();
 /* 渲染 */
 function render(){
 
-nav.innerHTML = modules.map((m,i)=>
+/* 左侧 */
+nav.innerHTML=modules.map((m,i)=>
 `<div class="${current===i?'active':''}" onclick="openModule(${i})">${m.name}</div>`
 ).join("");
 
-moduleList.innerHTML = modules.map((m,i)=>
-`<div onclick="selected=${i}" style="cursor:pointer;">${m.name}</div>`
+/* 后台模块列表 */
+moduleList.innerHTML=modules.map((m,i)=>
+`<div class="admin-item ${selected===i?'selected':''}" onclick="selectModule(${i})">
+${m.name}
+${isAdmin?`<button class="delete" onclick="deleteModule('${m.id}')">Delete</button>`:""}
+</div>`
 ).join("");
 
-if(current === null){
-main.innerHTML = "No modules";
+if(current===null){
+main.innerHTML="No modules";
 return;
 }
 
-let m = modules[current];
+/* 主内容 */
+let m=modules[current];
 
-let html = `<h2>${m.name}</h2>`;
+let html=`<h2>${m.name}</h2>`;
 
 contents.forEach(c=>{
-if(c.module === m.id){
+if(c.module===m.id){
 
-html += `
+html+=`
 <div class="block">
 ${c.en}
 
-${c.img ? `<br><img src="${c.img}" width="200">` : ""}
+${c.img?`<br><img src="${c.img}" width="200">`:""}
 
-${c.file ? `<br><a href="${c.file}" target="_blank">${c.fileName}</a>` : ""}
+${c.file?`<br><a href="${c.file}" target="_blank">${c.fileName}</a>`:""}
 
-${isAdmin ? `<br><button onclick="del('${c.id}')">Delete</button>` : ""}
-</div>
-`;
+${isAdmin?`<br><button onclick="deleteContent('${c.id}')">Delete</button>`:""}
+</div>`;
 }
 });
 
-main.innerHTML = html;
+main.innerHTML=html;
 }
 
-/* 操作 */
-window.openModule = i=>{
-current = i;
+/* 模块操作 */
+window.openModule=i=>{
+current=i;
 render();
 };
 
-window.addModule = async ()=>{
-let name = new_module.value;
+window.selectModule=i=>{
+selected=i;
+edit_module_name.value=modules[i].name;
+render();
+};
+
+window.addModule=async()=>{
+let name=new_module.value;
 if(!name) return alert("Enter name");
 
-await addDoc(collection(db,"modules"), {name});
+await addDoc(collection(db,"modules"),{name});
 load();
 };
 
-window.addContent = async ()=>{
+window.deleteModule=async(id)=>{
+await deleteDoc(doc(db,"modules",id));
+load();
+};
 
-if(selected === null){
-alert("Select module first");
-return;
-}
+window.updateModuleName=async()=>{
+if(selected===null) return;
 
-let data = {
-en: quillEN.root.innerHTML,
-cn: quillCN.root.innerHTML,
-module: modules[selected].id
+let id=modules[selected].id;
+let name=edit_module_name.value;
+
+await updateDoc(doc(db,"modules",id),{name});
+load();
+};
+
+/* 内容操作 */
+window.addContent=async()=>{
+
+if(selected===null) return alert("Select module");
+
+let data={
+en:quillEN.root.innerHTML,
+cn:quillCN.root.innerHTML,
+module:modules[selected].id
 };
 
 if(img.files[0]){
-let r = ref(storage,"img/"+Date.now());
+let r=ref(storage,"img/"+Date.now());
 await uploadBytes(r,img.files[0]);
-data.img = await getDownloadURL(r);
+data.img=await getDownloadURL(r);
 }
 
 if(file.files[0]){
-let r = ref(storage,"file/"+Date.now());
+let r=ref(storage,"file/"+Date.now());
 await uploadBytes(r,file.files[0]);
-data.file = await getDownloadURL(r);
-data.fileName = file.files[0].name;
+data.file=await getDownloadURL(r);
+data.fileName=file.files[0].name;
 }
 
-await addDoc(collection(db,"contents"), data);
+await addDoc(collection(db,"contents"),data);
 
 load();
 };
 
-window.del = async id=>{
+window.deleteContent=async(id)=>{
 await deleteDoc(doc(db,"contents",id));
 load();
 };
