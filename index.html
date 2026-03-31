@@ -2,24 +2,41 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>FINAL PRO SYSTEM</title>
+<title>FINAL PRO MULTILINGUAL</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
 <style>
 body { margin:0; font-family: Arial; }
-.sidebar { width:220px; background:#f5f5f5; height:100vh; padding:20px; position:fixed; }
+
+.sidebar {
+width:220px;
+background:#f5f5f5;
+height:100vh;
+padding:20px;
+position:fixed;
+}
+
 .main { margin-left:240px; padding:40px; }
 
-.block { margin:20px 0; padding:15px; background:#fafafa; }
+.block {
+margin:20px 0;
+padding:15px;
+background:#fafafa;
+}
 
 .active { color:blue; font-weight:bold; }
 .selected { background:#d0e7ff; }
 
-.admin-item { cursor:pointer; padding:5px; margin:3px 0; }
-.delete { background:red; color:white; margin-left:10px; }
+.file-item {
+display:flex;
+justify-content:space-between;
+padding:8px;
+border-bottom:1px solid #ccc;
+}
 
+.delete { background:red; color:white; }
 </style>
 </head>
 
@@ -28,24 +45,29 @@ body { margin:0; font-family: Arial; }
 <div class="sidebar">
 <h3>Modules</h3>
 <div id="nav"></div>
+
+<button onclick="setLang('en')">EN</button>
+<button onclick="setLang('cn')">中文</button>
+
 <button id="logoutBtn" style="display:none;" onclick="logout()">Logout</button>
 </div>
 
-<div class="main" id="main">Loading...</div>
+<div class="main" id="main"></div>
 
 <div id="admin" style="display:none;" class="main">
 
 <h3>Module Management</h3>
 
-<input id="new_module" placeholder="New module name">
+<input id="new_module_en" placeholder="Module EN">
+<input id="new_module_cn" placeholder="模块 CN">
 <button onclick="addModule()">Add Module</button>
 
-<h4>Modules</h4>
 <div id="moduleList"></div>
 
-<h4>Edit Module Name</h4>
-<input id="edit_module_name">
-<button onclick="updateModuleName()">Update Name</button>
+<h4>Edit Module</h4>
+<input id="edit_en">
+<input id="edit_cn">
+<button onclick="updateModule()">Update</button>
 
 <hr>
 
@@ -55,8 +77,7 @@ body { margin:0; font-family: Arial; }
 <h4>Editor CN</h4>
 <div id="editor_cn"></div>
 
-<input type="file" id="img">
-<input type="file" id="file">
+<input type="file" id="fileUpload">
 
 <button onclick="addContent()">Add Content</button>
 
@@ -66,30 +87,25 @@ body { margin:0; font-family: Arial; }
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
 
-/* 🔥 替换 */
+/* 替换 */
 const firebaseConfig = {
-  apiKey: "AIzaSyDovU5fqi3Wl0fUIm8iAxYDpm1TrS1R5o4",
-  authDomain: "self-website-385d9.firebaseapp.com",
-  projectId: "self-website-385d9",
-  storageBucket: "self-website-385d9.firebasestorage.app",
-  messagingSenderId: "457658813599",
-  appId: "1:457658813599:web:4dfd7b39e44db7ca3826aa"
+  apiKey: "你的",
+  authDomain: "你的",
+  projectId: "你的",
+  storageBucket: "你的",
+  appId: "你的"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-/* 状态 */
-let modules=[];
-let contents=[];
-let current=null;
-let selected=null;
-let isAdmin=false;
+let modules=[], contents=[];
+let current=null, selected=null, isAdmin=false;
+let lang="en";
 
-/* 编辑器 */
 let quillEN=new Quill('#editor_en',{theme:'snow'});
 let quillCN=new Quill('#editor_cn',{theme:'snow'});
 
@@ -113,17 +129,22 @@ logoutBtn.style.display="none";
 render();
 };
 
+window.setLang=l=>{
+lang=l;
+render();
+};
+
 /* 加载 */
 async function load(){
 
 modules=[];
 contents=[];
 
-const mSnap=await getDocs(collection(db,"modules"));
-mSnap.forEach(d=>modules.push({id:d.id,...d.data()}));
+const m=await getDocs(collection(db,"modules"));
+m.forEach(d=>modules.push({id:d.id,...d.data()}));
 
-const cSnap=await getDocs(collection(db,"contents"));
-cSnap.forEach(d=>contents.push({id:d.id,...d.data()}));
+const c=await getDocs(collection(db,"contents"));
+c.forEach(d=>contents.push({id:d.id,...d.data()}));
 
 if(modules.length>0 && current===null){
 current=0;
@@ -135,15 +156,15 @@ render();
 /* 渲染 */
 function render(){
 
-/* 左侧 */
 nav.innerHTML=modules.map((m,i)=>
-`<div class="${current===i?'active':''}" onclick="openModule(${i})">${m.name}</div>`
+`<div class="${current===i?'active':''}" onclick="openModule(${i})">
+${lang==="en"?m.name_en:m.name_cn}
+</div>`
 ).join("");
 
-/* 后台模块列表 */
 moduleList.innerHTML=modules.map((m,i)=>
 `<div class="admin-item ${selected===i?'selected':''}" onclick="selectModule(${i})">
-${m.name}
+${m.name_en} / ${m.name_cn}
 ${isAdmin?`<button class="delete" onclick="deleteModule('${m.id}')">Delete</button>`:""}
 </div>`
 ).join("");
@@ -153,23 +174,29 @@ main.innerHTML="No modules";
 return;
 }
 
-/* 主内容 */
 let m=modules[current];
 
-let html=`<h2>${m.name}</h2>`;
+let html=`<h2>${lang==="en"?m.name_en:m.name_cn}</h2>`;
 
+/* 内容 */
 contents.forEach(c=>{
 if(c.module===m.id){
 
 html+=`
 <div class="block">
-${c.en}
+${lang==="en"?c.en:c.cn}
 
-${c.img?`<br><img src="${c.img}" width="200">`:""}
+/* 文件列表 */
+${c.files?c.files.map(f=>`
+<div class="file-item">
+<span>${f.name}</span>
+<div>
+<a href="${f.url}" target="_blank">Download</a>
+${isAdmin?`<button onclick="deleteFile('${c.id}','${f.path}')">Delete</button>`:""}
+</div>
+</div>
+`).join(""):""}
 
-${c.file?`<br><a href="${c.file}" target="_blank">${c.fileName}</a>`:""}
-
-${isAdmin?`<br><button onclick="deleteContent('${c.id}')">Delete</button>`:""}
 </div>`;
 }
 });
@@ -177,76 +204,76 @@ ${isAdmin?`<br><button onclick="deleteContent('${c.id}')">Delete</button>`:""}
 main.innerHTML=html;
 }
 
-/* 模块操作 */
+/* 模块 */
+window.addModule=async()=>{
+await addDoc(collection(db,"modules"),{
+name_en:new_module_en.value,
+name_cn:new_module_cn.value
+});
+load();
+};
+
+window.selectModule=i=>{
+selected=i;
+edit_en.value=modules[i].name_en;
+edit_cn.value=modules[i].name_cn;
+render();
+};
+
+window.updateModule=async()=>{
+let id=modules[selected].id;
+await updateDoc(doc(db,"modules",id),{
+name_en:edit_en.value,
+name_cn:edit_cn.value
+});
+load();
+};
+
+window.deleteModule=async id=>{
+await deleteDoc(doc(db,"modules",id));
+load();
+};
+
+/* 内容 */
+window.addContent=async()=>{
+
+if(selected===null) return alert("Select module");
+
+let filesArr=[];
+
+if(fileUpload.files[0]){
+let f=fileUpload.files[0];
+let path="files/"+Date.now()+f.name;
+
+let r=ref(storage,path);
+await uploadBytes(r,f);
+let url=await getDownloadURL(r);
+
+filesArr.push({name:f.name,url,path});
+}
+
+await addDoc(collection(db,"contents"),{
+en:quillEN.root.innerHTML,
+cn:quillCN.root.innerHTML,
+module:modules[selected].id,
+files:filesArr
+});
+
+load();
+};
+
+/* 删除文件 */
+window.deleteFile=async(contentId,path)=>{
+await deleteObject(ref(storage,path));
+load();
+};
+
+/* 打开 */
 window.openModule=i=>{
 current=i;
 render();
 };
 
-window.selectModule=i=>{
-selected=i;
-edit_module_name.value=modules[i].name;
-render();
-};
-
-window.addModule=async()=>{
-let name=new_module.value;
-if(!name) return alert("Enter name");
-
-await addDoc(collection(db,"modules"),{name});
-load();
-};
-
-window.deleteModule=async(id)=>{
-await deleteDoc(doc(db,"modules",id));
-load();
-};
-
-window.updateModuleName=async()=>{
-if(selected===null) return;
-
-let id=modules[selected].id;
-let name=edit_module_name.value;
-
-await updateDoc(doc(db,"modules",id),{name});
-load();
-};
-
-/* 内容操作 */
-window.addContent=async()=>{
-
-if(selected===null) return alert("Select module");
-
-let data={
-en:quillEN.root.innerHTML,
-cn:quillCN.root.innerHTML,
-module:modules[selected].id
-};
-
-if(img.files[0]){
-let r=ref(storage,"img/"+Date.now());
-await uploadBytes(r,img.files[0]);
-data.img=await getDownloadURL(r);
-}
-
-if(file.files[0]){
-let r=ref(storage,"file/"+Date.now());
-await uploadBytes(r,file.files[0]);
-data.file=await getDownloadURL(r);
-data.fileName=file.files[0].name;
-}
-
-await addDoc(collection(db,"contents"),data);
-
-load();
-};
-
-window.deleteContent=async(id)=>{
-await deleteDoc(doc(db,"contents",id));
-load();
-};
-
-/* 启动 */
 load();
 
 </script>
