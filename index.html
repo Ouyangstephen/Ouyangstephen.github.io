@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>FINAL FILE SYSTEM</title>
+<title>FINAL COMPLETE SYSTEM</title>
 
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
@@ -58,10 +58,13 @@ border-bottom:1px solid #ccc;
 
 <hr>
 
+<h3>Editor EN</h3>
 <div id="editor_en"></div>
+
+<h3>Editor CN</h3>
 <div id="editor_cn"></div>
 
-<!-- 🔥 多文件 -->
+<!-- 🔥 关键：multiple -->
 <input type="file" id="files" multiple>
 
 <button onclick="addContent()">Add Content</button>
@@ -146,7 +149,7 @@ ${lang==="en"?m.name_en:m.name_cn}
 ).join("");
 
 moduleList.innerHTML=modules.map((m,i)=>
-`<div class="selected" onclick="selectModule(${i})">
+`<div class="${selected===i?'selected':''}" onclick="selectModule(${i})">
 ${m.name_en} / ${m.name_cn}
 <button class="delete" onclick="deleteModule('${m.id}')">Delete</button>
 </div>`
@@ -174,7 +177,7 @@ ${c.files ? c.files.map(f=>`
 <span>${f.name}</span>
 <div>
 <a href="${f.url}" target="_blank">Download</a>
-${isAdmin?`<button onclick="deleteFile('${c.id}','${f.path}')">Delete</button>`:""}
+${isAdmin?`<button onclick="deleteFile('${f.path}')">Delete</button>`:""}
 </div>
 </div>
 `).join("") : ""}
@@ -214,14 +217,13 @@ await deleteDoc(doc(db,"modules",id));
 load();
 };
 
-/* 🔥 核心：多文件追加 */
+/* 🔥 多文件上传（核心修复） */
 window.addContent=async()=>{
 
 if(selected===null) return alert("Select module");
 
-let newFiles=[];
+let uploadedFiles=[];
 
-/* 遍历所有文件 */
 for(let f of files.files){
 
 let path="files/"+Date.now()+"_"+f.name;
@@ -231,26 +233,26 @@ await uploadBytes(r,f);
 
 let url=await getDownloadURL(r);
 
-newFiles.push({
+uploadedFiles.push({
 name:f.name,
 url:url,
 path:path
 });
 }
 
-/* 创建新内容（不覆盖旧内容） */
+/* 追加，不覆盖 */
 await addDoc(collection(db,"contents"),{
 en:quillEN.root.innerHTML,
 cn:quillCN.root.innerHTML,
 module:modules[selected].id,
-files:newFiles
+files:uploadedFiles
 });
 
 load();
 };
 
-/* 删除单个文件 */
-window.deleteFile=async(contentId,path)=>{
+/* 删除文件 */
+window.deleteFile=async(path)=>{
 await deleteObject(ref(storage,path));
 load();
 };
